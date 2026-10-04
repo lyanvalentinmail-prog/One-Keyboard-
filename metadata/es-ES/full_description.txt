@@ -1,0 +1,44 @@
+Jyutping es un método de entrada (teclado) de cantonés intuitivo y eficiente, pensado para que escribas de forma rápida, precisa y cómoda.
+Escribe en cantonés tal y como lo hablas: con naturalidad y fluidez.
+Cada palabra que escribes refuerza tu pronunciación. Cuanto más uses el Jyutping, más familiar te resultará el cantonés.
+
+Listo para usar desde el primer momento, prácticamente sin configuración.
+Código abierto, sin anuncios y totalmente sin conexión: sin problemas de privacidad.
+
+Se basa en el sistema de romanización Jyutping desarrollado por la Sociedad Lingüística de Hong Kong (LSHK) y es compatible con las distintas grafías de uso habitual.
+Puedes hacer búsquedas inversas del Jyutping con pinyin mandarín, Cangjie, Quick (Sucheng), trazos y descomposición de caracteres. La aplicación incluye explicaciones detalladas.
+
+Funciones destacadas del teclado:
+• Escritura estándar en Jyutping; por ejemplo, neihou → 你好
+• Escritura abreviada en Jyutping; por ejemplo, nh / nhou / neih → 你好
+• Compatibilidad con la introducción de tonos para mayor precisión, lo que ayuda a dominar los tonos y la pronunciación del cantonés
+• Los candidatos muestran las sílabas correspondientes en Jyutping, lo que facilita la escritura y refuerza la pronunciación correcta
+• Admite caracteres chinos tradicionales y simplificados; en los tradicionales distingue entre los estándares de Hong Kong y Taiwán
+• Búsqueda inversa con pinyin mandarín: empieza por R (por ejemplo, rlin → 林)
+• Búsqueda inversa con Cangjie o Quick (Sucheng): empieza por V (por ejemplo, vdd → 林)
+• Búsqueda inversa por trazos: empieza por X (por ejemplo, xwsad → 木)
+• Búsqueda inversa por descomposición de caracteres: empieza por Q (por ejemplo, qmukmuk → 林)
+• Sugerencias de emojis acordes con las expresiones del cantonés; por ejemplo, daai cung (大蟲) sugiere el emoji del tigre
+• Un vocabulario amplio adaptado al uso y a la gramática del cantonés, para escribir con naturalidad
+• Incluye vocabulario inglés de uso frecuente para una escritura bilingüe sin interrupciones
+• Varias disposiciones de teclado disponibles: QWERTY de 26 teclas, triple pulsación de 26 teclas, 9 teclas (T9), etc.
+• Compatible con los modos claro y oscuro, con altura de teclado ajustable
+• Herramientas de edición prácticas: copiar, cortar, pegar y mover el cursor
+• Sonido y vibración opcionales al pulsar las teclas
+
+La aplicación principal ofrece numerosos recursos sobre el cantonés para aprender y consultar con comodidad:
+• Guías detalladas sobre todas las funciones del teclado Jyutping
+• Tablas de iniciales, finales y tonos del sistema Jyutping
+• Frases y expresiones habituales en cantonés
+• Pronunciación de las palabras más usadas en cantonés
+• Buscador de pronunciación y diccionario de cantonés
+• Conversión de texto a Jyutping
+• Lectura en voz alta de textos en cantonés
+
+Respetamos la privacidad de las personas usuarias y no recopilamos ningún dato personal.
+
+Esta aplicación es de código abierto y está disponible en GitHub:
+https://github.com/yuetyam/jyutping-android
+
+Para saber más sobre el Jyutping y los teclados de cantonés, visita el sitio web oficial:
+https://jyutping.app

@@ -1,0 +1,1164 @@
+package org.jyutping.jyutping.keyboard
+
+import android.os.Build
+import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberSliderState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import org.jyutping.jyutping.BuildConfig
+import org.jyutping.jyutping.CharacterStandard
+import org.jyutping.jyutping.JyutpingInputMethodService
+import org.jyutping.jyutping.R
+import org.jyutping.jyutping.feedback.SoundEffect
+import org.jyutping.jyutping.models.InputKeyStyle
+import org.jyutping.jyutping.models.KeyboardForm
+import org.jyutping.jyutping.models.PreferredInputMode
+import org.jyutping.jyutping.presets.AltPresetColor
+import org.jyutping.jyutping.presets.PresetColor
+import java.util.Locale
+import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun SettingsScreen(height: Dp) {
+        val view = LocalView.current
+        val context = LocalContext.current as JyutpingInputMethodService
+        val isDarkMode by context.isDarkMode.collectAsState()
+        val isAudioFeedbackOn by context.isAudioFeedbackOn.collectAsState()
+        val isHapticFeedbackOn by context.isHapticFeedbackOn.collectAsState()
+        val useDedicatedNumberPad by context.useDedicatedNumberPad.collectAsState()
+        val useDedicatedStrokeLayout by context.useDedicatedStrokeLayout.collectAsState()
+        val needsNumberRow by context.needsNumberRow.collectAsState()
+        val showLowercaseKeys by context.showLowercaseKeys.collectAsState()
+        val previewKeyText by context.previewKeyText.collectAsState()
+        val isHighContrastPreferred by context.isHighContrastPreferred.collectAsState()
+        val needsInputModeSwitchKey by context.needsInputModeSwitchKey.collectAsState()
+        val needsLeftKey by context.needsLeftKey.collectAsState()
+        val needsRightKey by context.needsRightKey.collectAsState()
+        val keyHeightOffset by context.keyHeightOffset.collectAsState()
+        val keyHeightSliderState = rememberSliderState(value = keyHeightOffset.toFloat(), steps = 13, trackRange = (-7f..7f))
+        val extraBottomPadding by context.extraBottomPadding.collectAsState()
+        val inputKeyStyle by context.inputKeyStyle.collectAsState()
+        val preferredInputMode by context.preferredInputMode.collectAsState()
+        val commentStyle by context.commentStyle.collectAsState()
+        val preferredTraditionalStandard by context.preferredTraditionalStandard.collectAsState()
+        val cangjieVariant by context.cangjieVariant.collectAsState()
+        val isEmojiSuggestionsOn by context.isEmojiSuggestionsOn.collectAsState()
+        val isEnglishSuggestionsOn by context.isEnglishSuggestionsOn.collectAsState()
+        val isInputMemoryOn by context.isInputMemoryOn.collectAsState()
+        var isTryingToClearInputMemory by remember { mutableStateOf(false) }
+        val coroutineScope = rememberCoroutineScope()
+        val sectionShape = RoundedCornerShape(16.dp)
+        val tintColor: Color = if (isDarkMode) Color.White else Color.Black
+        val backColor: Color = if (isDarkMode) Color.Black else Color.White
+        val accentColor: Color = MaterialTheme.colorScheme.primary
+        val buttonColors: ButtonColors = if (isDarkMode) {
+                ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White)
+        } else {
+                ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
+        }
+        val destructiveButtonColors: ButtonColors = if (isDarkMode) {
+                ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.Red)
+        } else {
+                ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Red)
+        }
+        /*
+        val switchColors: SwitchColors = if (isDarkMode) {
+                SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = PresetColor.green, uncheckedThumbColor = Color.LightGray, uncheckedTrackColor = Color.DarkGray, uncheckedBorderColor = Color.Gray)
+        } else {
+                SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = PresetColor.green, uncheckedThumbColor = Color.DarkGray, uncheckedTrackColor = Color.LightGray, uncheckedBorderColor = Color.Gray)
+        }
+        */
+        val onHaptic: Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) HapticFeedbackConstants.TOGGLE_ON else HapticFeedbackConstants.VIRTUAL_KEY
+        val offHaptic: Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) HapticFeedbackConstants.TOGGLE_OFF else HapticFeedbackConstants.VIRTUAL_KEY
+        val version: String by lazy { BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")" }
+        Column(
+                modifier = Modifier
+                        .background(
+                                if (isHighContrastPreferred) {
+                                        if (isDarkMode) AltPresetColor.emphaticDark else AltPresetColor.emphaticLight
+                                } else {
+                                        if (isDarkMode) PresetColor.darkBackground else PresetColor.lightBackground
+                                }
+                        )
+                        .systemBarsPadding()
+                        .padding(bottom = extraBottomPadding.applyingValue.dp)
+                        .height(height)
+                        .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+                Row(
+                        modifier = Modifier
+                                .height(44.dp)
+                                .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                ) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        AdvancedIconButton(
+                                icon = Icons.Rounded.ArrowUpward
+                        ) {
+                                context.audioFeedback(SoundEffect.Back)
+                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                context.transformTo(KeyboardForm.Primary)
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                                text = stringResource(id = R.string.keyboard_settings_navigation_hint),
+                                modifier = Modifier.alpha(0.8f),
+                                color = tintColor
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        AdvancedIconButton(
+                                modifier = Modifier.alpha(0f),
+                                icon = ImageVector.vectorResource(id = R.drawable.button_expand),
+                                iconSize = 20.dp
+                        ) {
+                                context.audioFeedback(SoundEffect.Click)
+                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                }
+                LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                        item {
+                                Column(
+                                        modifier = Modifier
+                                                .background(color = backColor, shape = sectionShape)
+                                                .fillMaxWidth()
+                                ) {
+                                        Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                Text(
+                                                        text = stringResource(id = R.string.keyboard_settings_keyboard_feedback_audio_switch_title),
+                                                        color = tintColor
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                Switch(
+                                                        checked = isAudioFeedbackOn,
+                                                        onCheckedChange = {
+                                                                view.performHapticFeedback(if (it) onHaptic else offHaptic)
+                                                                context.updateAudioFeedback(it)
+                                                        },
+                                                        thumbContent = { SwitchThumbContent(isAudioFeedbackOn) }
+                                                )
+                                        }
+                                        ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                        Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                Text(
+                                                        text = stringResource(id = R.string.keyboard_settings_keyboard_feedback_haptic_switch_title),
+                                                        color = tintColor
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                Switch(
+                                                        checked = isHapticFeedbackOn,
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                context.updateHapticFeedback(it)
+                                                        },
+                                                        thumbContent = { SwitchThumbContent(isHapticFeedbackOn) }
+                                                )
+                                        }
+                                }
+                        }
+                        item {
+                                Column(
+                                        modifier = Modifier
+                                                .background(color = backColor, shape = sectionShape)
+                                                .fillMaxWidth()
+                                ) {
+                                        Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                Text(
+                                                        text = stringResource(id = R.string.keyboard_settings_numeric_layout_switch_title),
+                                                        color = tintColor
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                Switch(
+                                                        checked = useDedicatedNumberPad,
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(if (it) onHaptic else offHaptic)
+                                                                context.updateDedicatedNumberPadUsage(it)
+                                                        },
+                                                        thumbContent = { SwitchThumbContent(useDedicatedNumberPad) }
+                                                )
+                                        }
+                                        ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                        Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                Text(
+                                                        text = stringResource(id = R.string.keyboard_settings_stroke_layout_switch_title),
+                                                        color = tintColor
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                Switch(
+                                                        checked = useDedicatedStrokeLayout,
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(if (it) onHaptic else offHaptic)
+                                                                context.updateDedicatedStrokeLayoutUsage(it)
+                                                        },
+                                                        thumbContent = { SwitchThumbContent(useDedicatedStrokeLayout) }
+                                                )
+                                        }
+                                        ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                        Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                Text(
+                                                        text = stringResource(id = R.string.keyboard_settings_number_row_switch_title),
+                                                        color = tintColor
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                Switch(
+                                                        checked = needsNumberRow,
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(if (it) onHaptic else offHaptic)
+                                                                context.updateNeedsNumberRow(it)
+                                                        },
+                                                        thumbContent = { SwitchThumbContent(needsNumberRow) }
+                                                )
+                                        }
+                                        ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                        Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                Text(
+                                                        text = stringResource(id = R.string.keyboard_settings_show_lowercase_keys_switch_title),
+                                                        color = tintColor
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                Switch(
+                                                        checked = showLowercaseKeys,
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(if (it) onHaptic else offHaptic)
+                                                                context.updateShowLowercaseKeys(it)
+                                                        },
+                                                        thumbContent = { SwitchThumbContent(showLowercaseKeys) }
+                                                )
+                                        }
+                                        ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                        Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                Text(
+                                                        text = stringResource(id = R.string.keyboard_settings_key_text_preview_switch_title),
+                                                        color = tintColor
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                Switch(
+                                                        checked = previewKeyText,
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(if (it) onHaptic else offHaptic)
+                                                                context.updatePreviewKeyText(it)
+                                                        },
+                                                        thumbContent = { SwitchThumbContent(previewKeyText) }
+                                                )
+                                        }
+                                        ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                        Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                Text(
+                                                        text = stringResource(id = R.string.keyboard_settings_high_contrast_switch_title),
+                                                        color = tintColor
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                Switch(
+                                                        checked = isHighContrastPreferred,
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(if (it) onHaptic else offHaptic)
+                                                                context.updateHighContrast(it)
+                                                        },
+                                                        thumbContent = { SwitchThumbContent(isHighContrastPreferred) }
+                                                )
+                                        }
+                                }
+                        }
+                        item {
+                                Column(
+                                        modifier = Modifier
+                                                .background(color = backColor, shape = sectionShape)
+                                                .fillMaxWidth()
+                                ) {
+                                        Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                Text(
+                                                        text = stringResource(id = R.string.keyboard_settings_globe_key_switch_title),
+                                                        color = tintColor
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                Switch(
+                                                        checked = needsInputModeSwitchKey,
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(if (it) onHaptic else offHaptic)
+                                                                context.updateNeedsInputModeSwitchKey(it)
+                                                        },
+                                                        thumbContent = { SwitchThumbContent(needsInputModeSwitchKey) }
+                                                )
+                                        }
+                                        ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                        Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                Text(
+                                                        text = stringResource(id = R.string.keyboard_settings_left_key_switch_title),
+                                                        color = tintColor
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                Switch(
+                                                        checked = needsLeftKey,
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(if (it) onHaptic else offHaptic)
+                                                                context.updateNeedsLeftKey(it)
+                                                        },
+                                                        thumbContent = { SwitchThumbContent(needsLeftKey) }
+                                                )
+                                        }
+                                        ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                        Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                Text(
+                                                        text = stringResource(id = R.string.keyboard_settings_right_key_switch_title),
+                                                        color = tintColor
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                Switch(
+                                                        checked = needsRightKey,
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(if (it) onHaptic else offHaptic)
+                                                                context.updateNeedsRightKey(it)
+                                                        },
+                                                        thumbContent = { SwitchThumbContent(needsRightKey) }
+                                                )
+                                        }
+                                }
+                        }
+                        item {
+                                Column(
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                        Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                Text(
+                                                        text = stringResource(id = R.string.keyboard_settings_key_height_offset_title),
+                                                        color = tintColor,
+                                                        style = MaterialTheme.typography.bodySmall
+                                                )
+                                                Text(
+                                                        text = ": ",
+                                                        modifier = Modifier.alpha(0.66f),
+                                                        color = tintColor,
+                                                        style = MaterialTheme.typography.bodySmall
+                                                )
+                                                Text(
+                                                        text = String.format(Locale.US, "%+d", keyHeightOffset),
+                                                        color = tintColor,
+                                                        style = MaterialTheme.typography.bodySmall
+                                                )
+                                                Text(
+                                                        text = "pt",
+                                                        color = tintColor,
+                                                        style = MaterialTheme.typography.bodySmall
+                                                )
+                                        }
+                                        Box(
+                                                modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .background(color = backColor, shape = CircleShape)
+                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                                Row(
+                                                        modifier = Modifier
+                                                                .matchParentSize()
+                                                                .padding(top = 34.dp, start = 1.dp, end = 5.dp),
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                        for (number in (-7..7)) {
+                                                                Text(
+                                                                        text = String.format(Locale.US, "%+d", number),
+                                                                        color = tintColor,
+                                                                        fontSize = MaterialTheme.typography.labelSmall.fontSize,
+                                                                        fontFamily = FontFamily.Monospace
+                                                                )
+                                                        }
+                                                }
+                                                Slider(
+                                                        state = keyHeightSliderState,
+                                                        onValueChange = {
+                                                                keyHeightSliderState.value = it
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                                                                        view.performHapticFeedback(HapticFeedbackConstants.SEGMENT_FREQUENT_TICK)
+                                                                } else {
+                                                                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                }
+                                                        },
+                                                        onValueChangeFinished = {
+                                                                context.updateKeyHeightOffset(keyHeightSliderState.value.roundToInt())
+                                                        }
+                                                )
+                                        }
+                                }
+                        }
+                        item {
+                                Row(
+                                        modifier = Modifier
+                                                .background(color = backColor, shape = CircleShape)
+                                                .padding(horizontal = 4.dp)
+                                                .fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                        Text(
+                                                text = stringResource(id = R.string.keyboard_settings_bottom_padding_title),
+                                                color = tintColor,
+                                                style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Spacer(modifier = Modifier.weight(1f))
+                                        ButtonGroup(
+                                                overflowIndicator = { menuState ->
+                                                        ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
+                                                },
+                                                expandedRatio = 0f,
+                                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                toggleableItem(
+                                                        checked = extraBottomPadding.isNone,
+                                                        label = context.applicationContext.getString(R.string.keyboard_settings_bottom_padding_none),
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updateExtraBottomPadding(ExtraBottomPadding.None)
+                                                        }
+                                                )
+                                                toggleableItem(
+                                                        checked = extraBottomPadding.isLow,
+                                                        label = context.applicationContext.getString(R.string.keyboard_settings_bottom_padding_low),
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updateExtraBottomPadding(ExtraBottomPadding.Low)
+                                                        }
+                                                )
+                                                toggleableItem(
+                                                        checked = extraBottomPadding.isMedium,
+                                                        label = context.applicationContext.getString(R.string.keyboard_settings_bottom_padding_medium),
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updateExtraBottomPadding(ExtraBottomPadding.Medium)
+                                                        }
+                                                )
+                                                toggleableItem(
+                                                        checked = extraBottomPadding.isHigh,
+                                                        label = context.applicationContext.getString(R.string.keyboard_settings_bottom_padding_high),
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updateExtraBottomPadding(ExtraBottomPadding.High)
+                                                        }
+                                                )
+                                        }
+                                }
+                        }
+                        item {
+                                Row(
+                                        modifier = Modifier
+                                                .background(color = backColor, shape = CircleShape)
+                                                .padding(horizontal = 4.dp)
+                                                .fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                        Text(
+                                                text = stringResource(id = R.string.keyboard_settings_input_key_style_title),
+                                                color = tintColor,
+                                                style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Spacer(modifier = Modifier.weight(1f))
+                                        ButtonGroup(
+                                                overflowIndicator = { menuState ->
+                                                        ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
+                                                },
+                                                expandedRatio = 0f,
+                                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                toggleableItem(
+                                                        checked = inputKeyStyle.isClear,
+                                                        label = context.applicationContext.getString(R.string.keyboard_settings_input_key_style_none),
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updateInputKeyStyle(InputKeyStyle.Clear)
+                                                        }
+                                                )
+                                                toggleableItem(
+                                                        checked = inputKeyStyle.isNumbers,
+                                                        label = context.applicationContext.getString(R.string.keyboard_settings_input_key_style_numbers),
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updateInputKeyStyle(InputKeyStyle.Numbers)
+                                                        }
+                                                )
+                                                toggleableItem(
+                                                        checked = inputKeyStyle.isNumbersAndSymbols,
+                                                        label = context.applicationContext.getString(R.string.keyboard_settings_input_key_style_symbols),
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updateInputKeyStyle(InputKeyStyle.NumbersAndSymbols)
+                                                        }
+                                                )
+                                        }
+                                }
+                        }
+                        item {
+                                Row(
+                                        modifier = Modifier
+                                                .background(color = backColor, shape = CircleShape)
+                                                .padding(horizontal = 4.dp)
+                                                .fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                        Text(
+                                                text = stringResource(id = R.string.keyboard_settings_preferred_input_mode_title),
+                                                color = tintColor,
+                                                style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Spacer(modifier = Modifier.weight(1f))
+                                        ButtonGroup(
+                                                overflowIndicator = { menuState ->
+                                                        ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
+                                                },
+                                                expandedRatio = 0f,
+                                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                toggleableItem(
+                                                        checked = preferredInputMode.isCantonese,
+                                                        label = context.applicationContext.getString(R.string.keyboard_settings_preferred_input_mode_cantonese),
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updatePreferredInputMode(PreferredInputMode.Cantonese)
+                                                        }
+                                                )
+                                                toggleableItem(
+                                                        checked = preferredInputMode.isABC,
+                                                        label = context.applicationContext.getString(R.string.keyboard_settings_preferred_input_mode_abc),
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updatePreferredInputMode(PreferredInputMode.ABC)
+                                                        }
+                                                )
+                                                toggleableItem(
+                                                        checked = preferredInputMode.isPrevious,
+                                                        label = context.applicationContext.getString(R.string.keyboard_settings_preferred_input_mode_previous),
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updatePreferredInputMode(PreferredInputMode.Previous)
+                                                        }
+                                                )
+                                        }
+                                }
+                        }
+                        item {
+                                Row(
+                                        modifier = Modifier
+                                                .background(color = backColor, shape = CircleShape)
+                                                .padding(horizontal = 4.dp)
+                                                .fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                        Text(
+                                                text = stringResource(id = R.string.keyboard_settings_comment_style_title),
+                                                color = tintColor,
+                                                style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Spacer(modifier = Modifier.weight(1f))
+                                        ButtonGroup(
+                                                overflowIndicator = { menuState ->
+                                                        ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
+                                                },
+                                                expandedRatio = 0f,
+                                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                toggleableItem(
+                                                        checked = commentStyle.isAbove,
+                                                        label = context.applicationContext.getString(R.string.keyboard_settings_comment_style_above),
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updateCommentStyle(CommentStyle.AboveCandidates)
+                                                        }
+                                                )
+                                                toggleableItem(
+                                                        checked = commentStyle.isBelow,
+                                                        label = context.applicationContext.getString(R.string.keyboard_settings_comment_style_below),
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updateCommentStyle(CommentStyle.BelowCandidates)
+                                                        }
+                                                )
+                                                toggleableItem(
+                                                        checked = commentStyle.isNone,
+                                                        label = context.applicationContext.getString(R.string.keyboard_settings_comment_style_none),
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updateCommentStyle(CommentStyle.NoComments)
+                                                        }
+                                                )
+                                        }
+                                }
+                        }
+                        item {
+                                Column(
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                        Text(
+                                                text = stringResource(id = R.string.keyboard_settings_traditional_character_standard_header),
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                color = tintColor,
+                                                style = MaterialTheme.typography.bodySmall
+                                        )
+                                        Column(
+                                                modifier = Modifier
+                                                        .background(color = backColor, shape = sectionShape)
+                                                        .fillMaxWidth()
+                                        ) {
+                                                Button(
+                                                        onClick = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updatePreferredTraditionalStandard(CharacterStandard.Preset)
+                                                        },
+                                                        shape = CircleShape,
+                                                        colors = buttonColors,
+                                                        contentPadding = PaddingValues(horizontal = 8.dp)
+                                                ) {
+                                                        Text(
+                                                                text = stringResource(id = R.string.keyboard_settings_traditional_character_standard_option1_preset),
+                                                                fontWeight = FontWeight.Normal
+                                                        )
+                                                        Spacer(modifier = Modifier.weight(1f))
+                                                        Icon(
+                                                                imageVector = Icons.Rounded.Check,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.alpha(if (preferredTraditionalStandard == CharacterStandard.Preset) 1f else 0f),
+                                                                tint = accentColor
+                                                        )
+                                                }
+                                                ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                                Button(
+                                                        onClick = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updatePreferredTraditionalStandard(CharacterStandard.HongKong)
+                                                        },
+                                                        shape = CircleShape,
+                                                        colors = buttonColors,
+                                                        contentPadding = PaddingValues(horizontal = 8.dp)
+                                                ) {
+                                                        Text(
+                                                                text = stringResource(id = R.string.keyboard_settings_traditional_character_standard_option6_hongkong),
+                                                                fontWeight = FontWeight.Normal
+                                                        )
+                                                        Spacer(modifier = Modifier.weight(1f))
+                                                        Icon(
+                                                                imageVector = Icons.Rounded.Check,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.alpha(if (preferredTraditionalStandard == CharacterStandard.HongKong) 1f else 0f),
+                                                                tint = accentColor
+                                                        )
+                                                }
+                                                ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                                Button(
+                                                        onClick = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updatePreferredTraditionalStandard(CharacterStandard.Taiwan)
+                                                        },
+                                                        shape = CircleShape,
+                                                        colors = buttonColors,
+                                                        contentPadding = PaddingValues(horizontal = 8.dp)
+                                                ) {
+                                                        Text(
+                                                                text = stringResource(id = R.string.keyboard_settings_traditional_character_standard_option7_taiwan),
+                                                                fontWeight = FontWeight.Normal
+                                                        )
+                                                        Spacer(modifier = Modifier.weight(1f))
+                                                        Icon(
+                                                                imageVector = Icons.Rounded.Check,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.alpha(if (preferredTraditionalStandard == CharacterStandard.Taiwan) 1f else 0f),
+                                                                tint = accentColor
+                                                        )
+                                                }
+                                                ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                                Button(
+                                                        onClick = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updatePreferredTraditionalStandard(CharacterStandard.PrcGeneral)
+                                                        },
+                                                        shape = CircleShape,
+                                                        colors = buttonColors,
+                                                        contentPadding = PaddingValues(horizontal = 8.dp)
+                                                ) {
+                                                        Text(
+                                                                text = stringResource(id = R.string.keyboard_settings_traditional_character_standard_option8_prc),
+                                                                fontWeight = FontWeight.Normal
+                                                        )
+                                                        Spacer(modifier = Modifier.weight(1f))
+                                                        Icon(
+                                                                imageVector = Icons.Rounded.Check,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.alpha(if (preferredTraditionalStandard == CharacterStandard.PrcGeneral) 1f else 0f),
+                                                                tint = accentColor
+                                                        )
+                                                }
+                                                ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                                Button(
+                                                        onClick = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updatePreferredTraditionalStandard(CharacterStandard.AncientBooksPublishing)
+                                                        },
+                                                        shape = CircleShape,
+                                                        colors = buttonColors,
+                                                        contentPadding = PaddingValues(horizontal = 8.dp)
+                                                ) {
+                                                        Text(
+                                                                text = stringResource(id = R.string.keyboard_settings_traditional_character_standard_option9_abp),
+                                                                fontWeight = FontWeight.Normal
+                                                        )
+                                                        Spacer(modifier = Modifier.weight(1f))
+                                                        Icon(
+                                                                imageVector = Icons.Rounded.Check,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.alpha(if (preferredTraditionalStandard == CharacterStandard.AncientBooksPublishing) 1f else 0f),
+                                                                tint = accentColor
+                                                        )
+                                                }
+                                                ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                                Button(
+                                                        onClick = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updatePreferredTraditionalStandard(CharacterStandard.Inherited)
+                                                        },
+                                                        shape = CircleShape,
+                                                        colors = buttonColors,
+                                                        contentPadding = PaddingValues(horizontal = 8.dp)
+                                                ) {
+                                                        Text(
+                                                                text = stringResource(id = R.string.keyboard_settings_traditional_character_standard_option3_inherited),
+                                                                fontWeight = FontWeight.Normal
+                                                        )
+                                                        Spacer(modifier = Modifier.weight(1f))
+                                                        Icon(
+                                                                imageVector = Icons.Rounded.Check,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.alpha(if (preferredTraditionalStandard == CharacterStandard.Inherited) 1f else 0f),
+                                                                tint = accentColor
+                                                        )
+                                                }
+                                        }
+                                        Text(
+                                                text = stringResource(id = R.string.keyboard_settings_traditional_character_standard_footer),
+                                                modifier = Modifier.padding(horizontal = 8.dp).alpha(0.75f),
+                                                color = tintColor,
+                                                style = MaterialTheme.typography.bodySmall
+                                        )
+                                }
+                        }
+                        item {
+                                Column(
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                        Text(
+                                                text = stringResource(id = R.string.keyboard_settings_cangjie_variant_header),
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                color = tintColor,
+                                                style = MaterialTheme.typography.bodySmall
+                                        )
+                                        Column(
+                                                modifier = Modifier
+                                                        .background(color = backColor, shape = sectionShape)
+                                                        .fillMaxWidth()
+                                        ) {
+                                                Button(
+                                                        onClick = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updateCangjieVariant(CangjieVariant.Cangjie5)
+                                                        },
+                                                        shape = CircleShape,
+                                                        colors = buttonColors,
+                                                        contentPadding = PaddingValues(horizontal = 8.dp)
+                                                ) {
+                                                        Text(
+                                                                text = stringResource(id = R.string.keyboard_settings_cangjie_variant_cangjie5),
+                                                                fontWeight = FontWeight.Normal
+                                                        )
+                                                        Spacer(modifier = Modifier.weight(1f))
+                                                        Icon(
+                                                                imageVector = Icons.Rounded.Check,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.alpha(if (cangjieVariant == CangjieVariant.Cangjie5) 1f else 0f),
+                                                                tint = accentColor
+                                                        )
+                                                }
+                                                ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                                Button(
+                                                        onClick = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updateCangjieVariant(CangjieVariant.Cangjie3)
+                                                        },
+                                                        shape = CircleShape,
+                                                        colors = buttonColors,
+                                                        contentPadding = PaddingValues(horizontal = 8.dp)
+                                                ) {
+                                                        Text(
+                                                                text = stringResource(id = R.string.keyboard_settings_cangjie_variant_cangjie3),
+                                                                fontWeight = FontWeight.Normal
+                                                        )
+                                                        Spacer(modifier = Modifier.weight(1f))
+                                                        Icon(
+                                                                imageVector = Icons.Rounded.Check,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.alpha(if (cangjieVariant == CangjieVariant.Cangjie3) 1f else 0f),
+                                                                tint = accentColor
+                                                        )
+                                                }
+                                                ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                                Button(
+                                                        onClick = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updateCangjieVariant(CangjieVariant.Quick5)
+                                                        },
+                                                        shape = CircleShape,
+                                                        colors = buttonColors,
+                                                        contentPadding = PaddingValues(horizontal = 8.dp)
+                                                ) {
+                                                        Text(
+                                                                text = stringResource(id = R.string.keyboard_settings_cangjie_variant_quick5),
+                                                                fontWeight = FontWeight.Normal
+                                                        )
+                                                        Spacer(modifier = Modifier.weight(1f))
+                                                        Icon(
+                                                                imageVector = Icons.Rounded.Check,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.alpha(if (cangjieVariant == CangjieVariant.Quick5) 1f else 0f),
+                                                                tint = accentColor
+                                                        )
+                                                }
+                                                ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                                Button(
+                                                        onClick = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                context.updateCangjieVariant(CangjieVariant.Quick3)
+                                                        },
+                                                        shape = CircleShape,
+                                                        colors = buttonColors,
+                                                        contentPadding = PaddingValues(horizontal = 8.dp)
+                                                ) {
+                                                        Text(
+                                                                text = stringResource(id = R.string.keyboard_settings_cangjie_variant_quick3),
+                                                                fontWeight = FontWeight.Normal
+                                                        )
+                                                        Spacer(modifier = Modifier.weight(1f))
+                                                        Icon(
+                                                                imageVector = Icons.Rounded.Check,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.alpha(if (cangjieVariant == CangjieVariant.Quick3) 1f else 0f),
+                                                                tint = accentColor
+                                                        )
+                                                }
+                                        }
+                                }
+                        }
+                        item {
+                                Column(
+                                        modifier = Modifier
+                                                .background(color = backColor, shape = sectionShape)
+                                                .fillMaxWidth()
+                                ) {
+                                        Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                Text(
+                                                        text = stringResource(id = R.string.keyboard_settings_emoji_switch_title),
+                                                        color = tintColor
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                Switch(
+                                                        checked = isEmojiSuggestionsOn,
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(if (it) onHaptic else offHaptic)
+                                                                context.updateEmojiSuggestionsState(it)
+                                                        },
+                                                        thumbContent = { SwitchThumbContent(isEmojiSuggestionsOn) }
+                                                )
+                                        }
+                                        ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                        Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                Text(
+                                                        text = stringResource(id = R.string.keyboard_settings_english_suggestions_switch_title),
+                                                        color = tintColor
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                Switch(
+                                                        checked = isEnglishSuggestionsOn,
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(if (it) onHaptic else offHaptic)
+                                                                context.updateEnglishSuggestionsState(it)
+                                                        },
+                                                        thumbContent = { SwitchThumbContent(isEnglishSuggestionsOn) }
+                                                )
+                                        }
+                                }
+                        }
+                        item {
+                                Column(
+                                        modifier = Modifier
+                                                .background(color = backColor, shape = sectionShape)
+                                                .fillMaxWidth()
+                                ) {
+                                        Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                Text(
+                                                        text = stringResource(id = R.string.keyboard_settings_input_memory_switch_title),
+                                                        color = tintColor
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                Switch(
+                                                        checked = isInputMemoryOn,
+                                                        onCheckedChange = {
+                                                                context.audioFeedback(SoundEffect.Click)
+                                                                view.performHapticFeedback(if (it) onHaptic else offHaptic)
+                                                                context.updateInputMemoryState(it)
+                                                        },
+                                                        thumbContent = { SwitchThumbContent(isInputMemoryOn) }
+                                                )
+                                        }
+                                        ResponsiveDivider(isDarkMode, isHighContrastPreferred)
+                                        Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                TextButton(
+                                                        onClick = {
+                                                                context.audioFeedback(SoundEffect.Delete)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                isTryingToClearInputMemory = true
+                                                        },
+                                                        colors = destructiveButtonColors,
+                                                        contentPadding = PaddingValues(end = 12.dp)
+                                                ) {
+                                                        if (isTryingToClearInputMemory) {
+                                                                Text(
+                                                                        text = stringResource(id = R.string.keyboard_settings_clear_input_memory_message),
+                                                                        fontWeight = FontWeight.Normal
+                                                                )
+                                                        } else {
+                                                                Text(
+                                                                        text = stringResource(id = R.string.keyboard_settings_clear_input_memory),
+                                                                        fontWeight = FontWeight.Normal
+                                                                )
+                                                        }
+                                                }
+                                                if (isTryingToClearInputMemory) {
+                                                        TextButton(
+                                                                onClick = {
+                                                                        context.audioFeedback(SoundEffect.Delete)
+                                                                        view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                                                                        context.clearInputMemory()
+                                                                        coroutineScope.launch {
+                                                                                delay(1000L.milliseconds) // 1s
+                                                                                isTryingToClearInputMemory = false
+                                                                        }
+                                                                },
+                                                                colors = destructiveButtonColors,
+                                                                contentPadding = PaddingValues(horizontal = 12.dp)
+                                                        ) {
+                                                                Text(
+                                                                        text = stringResource(id = R.string.keyboard_settings_clear_input_memory_confirm),
+                                                                        fontWeight = FontWeight.Normal
+                                                                )
+                                                        }
+                                                        TextButton(
+                                                                onClick = {
+                                                                        context.audioFeedback(SoundEffect.Click)
+                                                                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                                                        coroutineScope.launch {
+                                                                                delay(300L.milliseconds) // 0.3s
+                                                                                isTryingToClearInputMemory = false
+                                                                        }
+                                                                },
+                                                                contentPadding = PaddingValues(horizontal = 12.dp)
+                                                        ) {
+                                                                Text(
+                                                                        text = stringResource(id = R.string.keyboard_settings_clear_input_memory_cancel),
+                                                                        fontWeight = FontWeight.Normal
+                                                                )
+                                                        }
+                                                }
+                                                Spacer(modifier = Modifier.weight(1f))
+                                        }
+                                }
+                        }
+                        item {
+                                Row(
+                                        modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(color = backColor, shape = CircleShape)
+                                                .padding(horizontal = 10.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                        Text(
+                                                text = stringResource(id = R.string.about_label_version),
+                                                color = tintColor
+                                        )
+                                        Spacer(modifier = Modifier.weight(1f))
+                                        SelectionContainer {
+                                                Text(
+                                                        text = version,
+                                                        color = tintColor
+                                                )
+                                        }
+                                }
+                        }
+                }
+        }
+}
+
+@Composable
+private fun ResponsiveDivider(isDarkMode: Boolean, isHighContrastPreferred: Boolean) {
+        HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 8.dp).alpha(0.75f),
+                thickness = 1.dp,
+                color = if (isHighContrastPreferred) {
+                        if (isDarkMode) AltPresetColor.emphaticDark else AltPresetColor.emphaticLight
+                } else {
+                        if (isDarkMode) PresetColor.emphaticDark else PresetColor.emphaticLight
+                }
+        )
+}
+
+@Composable
+private fun SwitchThumbContent(isOn: Boolean) {
+        Icon(
+                imageVector = if (isOn) Icons.Rounded.Check else Icons.Rounded.Close,
+                contentDescription = null,
+                modifier = Modifier.size(SwitchDefaults.IconSize)
+        )
+}

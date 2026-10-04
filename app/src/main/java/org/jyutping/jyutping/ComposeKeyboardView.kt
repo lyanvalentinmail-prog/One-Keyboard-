@@ -1,0 +1,186 @@
+package org.jyutping.jyutping
+
+import android.content.Context
+import android.content.res.Configuration
+import android.os.Build
+import androidx.annotation.DeprecatedSinceApi
+import androidx.annotation.RequiresApi
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.AbstractComposeView
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+import org.jyutping.jyutping.editingpanel.EditingPanel
+import org.jyutping.jyutping.emoji.EmojiBoard
+import org.jyutping.jyutping.keyboard.ABCKeyboard
+import org.jyutping.jyutping.keyboard.CandidateBoard
+import org.jyutping.jyutping.keyboard.CangjieKeyboard
+import org.jyutping.jyutping.keyboard.CantoneseKeyboard
+import org.jyutping.jyutping.keyboard.CantoneseNumericKeyboard
+import org.jyutping.jyutping.keyboard.CantoneseSymbolicKeyboard
+import org.jyutping.jyutping.keyboard.CommentStyle
+import org.jyutping.jyutping.keyboard.DetailInspectingScreen
+import org.jyutping.jyutping.keyboard.LayoutPickerScreen
+import org.jyutping.jyutping.keyboard.NumericKeyboard
+import org.jyutping.jyutping.keyboard.PhysicalKeyboardCandidateBar
+import org.jyutping.jyutping.keyboard.SettingsScreen
+import org.jyutping.jyutping.keyboard.SymbolicKeyboard
+import org.jyutping.jyutping.keyboard.TripleStrokeKeyboard
+import org.jyutping.jyutping.models.CompositionType
+import org.jyutping.jyutping.models.InputMethodMode
+import org.jyutping.jyutping.models.KeyboardForm
+import org.jyutping.jyutping.models.KeyboardInterface
+import org.jyutping.jyutping.models.KeyboardLayout
+import org.jyutping.jyutping.ninekey.NineKeyKeyboard
+import org.jyutping.jyutping.numeric.TailoredNumericKeyboard
+import org.jyutping.jyutping.presets.PresetConstant
+import org.jyutping.jyutping.stroke.StrokeKeyboard
+import org.jyutping.jyutping.stroke.TailoredStrokeKeyboard
+import splitties.systemservices.windowManager
+import kotlin.math.min
+import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
+
+class ComposeKeyboardView(context: Context) : AbstractComposeView(context) {
+
+        @Composable
+        override fun Content() {
+                val ctx = context as JyutpingInputMethodService
+                val needsNumberRow by ctx.needsNumberRow.collectAsState()
+                val isHapticFeedbackOn by ctx.isHapticFeedbackOn.collectAsState()
+                LocalView.current.isHapticFeedbackEnabled = isHapticFeedbackOn
+
+                // Check if physical keyboard is active
+                val isPhysicalKeyboard by ctx.isPhysicalKeyboardActive.collectAsState()
+
+                // Observe physical key preview and clear after short timeout
+                val lastPhysicalKey by ctx.lastPhysicalKey.collectAsState()
+                LaunchedEffect(lastPhysicalKey) {
+                        if (lastPhysicalKey != null) {
+                                delay(250L.milliseconds) // 0.25s
+                                ctx.lastPhysicalKey.value = null
+                        }
+                }
+
+                // If physical keyboard is active, show candidates view (collapsed or expanded)
+                if (isPhysicalKeyboard) {
+                        val keyboardForm by ctx.keyboardForm.collectAsState()
+                        val commentStyle by ctx.commentStyle.collectAsState()
+
+                        // Check if we're in expanded mode
+                        val isExpanded = keyboardForm == KeyboardForm.CandidateBoard
+
+                        if (isExpanded) {
+                                // Expanded mode: show full candidate board
+                                // val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+                                // val expandedHeight = screenHeight * 0.5f // 50% of screen height
+                                val expandedHeight = keyboardHeight(0, needsNumberRow)
+                                CandidateBoard(height = expandedHeight, isPhysicalKeyboard = true)
+                        } else {
+                                // Collapsed mode: show horizontal scrolling candidates
+                                // Increased height to prevent number labels from overlapping with Jyutping romanization
+                                val collapsedHeight = when (commentStyle) {
+                                        CommentStyle.AboveCandidates, CommentStyle.BelowCandidates -> 56.dp
+                                        else -> 50.dp
+                                }
+                                PhysicalKeyboardCandidateBar(height = collapsedHeight)
+                        }
+                        return
+                }
+
+                val keyboardLayout by ctx.keyboardLayout.collectAsState()
+                val keyboardForm by ctx.keyboardForm.collectAsState()
+                val compositionType by ctx.compositionType.collectAsState()
+                val inputMethodMode by ctx.inputMethodMode.collectAsState()
+                val keyOffset by ctx.keyHeightOffset.collectAsState()
+                when (keyboardForm) {
+                        KeyboardForm.Primary -> when (inputMethodMode) {
+                                InputMethodMode.ABC -> ABCKeyboard(keyHeight = responsiveKeyHeight(keyOffset))
+                                InputMethodMode.Cantonese -> when (compositionType) {
+                                        CompositionType.Primary -> when (keyboardLayout) {
+                                                KeyboardLayout.Qwerty -> CantoneseKeyboard(keyHeight = responsiveKeyHeight(keyOffset))
+                                                KeyboardLayout.TripleStroke -> TripleStrokeKeyboard(keyHeight = responsiveKeyHeight(keyOffset))
+                                                KeyboardLayout.NineKey -> NineKeyKeyboard(keyHeight = responsiveKeyHeight(keyOffset))
+                                        }
+                                        CompositionType.Pinyin -> CantoneseKeyboard(keyHeight = responsiveKeyHeight(keyOffset))
+                                        CompositionType.Cangjie -> CangjieKeyboard(keyHeight = responsiveKeyHeight(keyOffset))
+                                        CompositionType.Stroke -> StrokeKeyboard(keyHeight = responsiveKeyHeight(keyOffset))
+                                }
+                        }
+                        KeyboardForm.Numeric -> when (inputMethodMode) {
+                                InputMethodMode.ABC -> NumericKeyboard(keyHeight = responsiveKeyHeight(keyOffset))
+                                InputMethodMode.Cantonese -> CantoneseNumericKeyboard(keyHeight = responsiveKeyHeight(keyOffset))
+                        }
+                        KeyboardForm.Symbolic -> when (inputMethodMode) {
+                                InputMethodMode.ABC -> SymbolicKeyboard(keyHeight = responsiveKeyHeight(keyOffset))
+                                InputMethodMode.Cantonese -> CantoneseSymbolicKeyboard(keyHeight = responsiveKeyHeight(keyOffset))
+                        }
+                        KeyboardForm.DedicatedNumbers -> TailoredNumericKeyboard(keyHeight = responsiveKeyHeight(keyOffset))
+                        KeyboardForm.DedicatedStroke -> TailoredStrokeKeyboard(keyHeight = responsiveKeyHeight(keyOffset))
+                        KeyboardForm.CandidateBoard -> CandidateBoard(height = keyboardHeight(keyOffset, needsNumberRow))
+                        KeyboardForm.DetailInspecting -> DetailInspectingScreen(height = keyboardHeight(keyOffset, needsNumberRow))
+                        KeyboardForm.Settings -> CompactTheme { SettingsScreen(height = keyboardHeight(keyOffset, needsNumberRow)) }
+                        KeyboardForm.LayoutPicker -> CompactTheme { LayoutPickerScreen(height = keyboardHeight(keyOffset, needsNumberRow)) }
+                        KeyboardForm.EmojiBoard -> EmojiBoard(height = keyboardHeight(keyOffset, needsNumberRow))
+                        KeyboardForm.EditingPanel -> EditingPanel(height = keyboardHeight(keyOffset, needsNumberRow))
+                }
+        }
+
+        @Composable
+        private fun keyboardHeight(keyOffset: Int, needsNumberRow: Boolean): Dp = (responsiveKeyHeight(keyOffset) * (if (needsNumberRow) 5 else 4)) + PresetConstant.ToolBarHeight.dp
+
+        @Composable
+        private fun responsiveKeyHeight(offset: Int): Dp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) api34ResponsiveKeyHeight(offset) else legacyResponsiveKeyHeight(offset)
+
+        @Composable
+        @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+        private fun api34ResponsiveKeyHeight(offset: Int): Dp {
+                val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+                val windowMetrics = context.windowManager.currentWindowMetrics
+                val bounds = windowMetrics.bounds
+                val density = windowMetrics.density
+                val windowWidth: Int = (bounds.width() / density).toInt()
+                val windowHeight: Int = (bounds.height() / density).toInt()
+                val minDimension: Int = min(windowWidth, windowHeight)
+                val isPhone: Boolean = minDimension < 500
+                val keyboardInterface: KeyboardInterface = when {
+                        isPhone && isLandscape -> KeyboardInterface.PhoneLandscape
+                        isPhone -> KeyboardInterface.PhonePortrait
+                        isLandscape -> KeyboardInterface.PadLandscape
+                        else -> KeyboardInterface.PadPortrait
+                }
+                (context as JyutpingInputMethodService).updateKeyboardInterface(keyboardInterface)
+                if (keyboardInterface.isPhoneLandscape) return 40.dp
+                val keyHeight: Int = 53 + ((windowWidth - 300) / 20)
+                return (keyHeight + offset).dp
+        }
+
+        @Composable
+        @DeprecatedSinceApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+        private fun legacyResponsiveKeyHeight(offset: Int): Dp {
+                val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+                val containerSize = LocalWindowInfo.current.containerSize
+                val density = LocalDensity.current.density
+                val windowWidth: Int = (containerSize.width / density).roundToInt()
+                val windowHeight: Int = (containerSize.height / density).roundToInt()
+                val minDimension = min(windowWidth, windowHeight)
+                val isPhone: Boolean = minDimension < 500
+                val keyboardInterface: KeyboardInterface = when {
+                        isPhone && isLandscape -> KeyboardInterface.PhoneLandscape
+                        isPhone -> KeyboardInterface.PhonePortrait
+                        isLandscape -> KeyboardInterface.PadLandscape
+                        else -> KeyboardInterface.PadPortrait
+                }
+                (context as JyutpingInputMethodService).updateKeyboardInterface(keyboardInterface)
+                if (keyboardInterface.isPhoneLandscape) return 40.dp
+                val keyHeight: Int = 53 + ((windowWidth - 300) / 20)
+                return (keyHeight + offset).dp
+        }
+}

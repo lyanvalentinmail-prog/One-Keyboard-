@@ -1,0 +1,5 @@
+1. Se ha añadido una disposición de teclado Jyutping de 9 teclas (T9).
+2. Se ha añadido la opción de 9 teclas (T9) para la búsqueda inversa del Jyutping por trazos.
+3. Mejor rendimiento, con menor latencia al pulsar las teclas y menos retardo al escribir.
+4. Se ha depurado la interfaz de la aplicación principal.
+5. Se ha actualizado el icono de la aplicación.

@@ -1,0 +1,1633 @@
+package org.jyutping.jyutping
+
+import android.content.ClipData
+import android.content.ClipDescription.MIMETYPE_TEXT_PLAIN
+import android.content.ClipboardManager
+import android.content.res.Configuration
+import android.media.AudioManager
+import android.os.Build
+import android.view.KeyEvent
+import android.view.View
+import android.view.WindowManager
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.ExtractedTextRequest
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.content.edit
+import androidx.core.view.WindowCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.savedstate.SavedStateRegistry
+import androidx.savedstate.SavedStateRegistryController
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.jyutping.jyutping.emoji.Emoji
+import org.jyutping.jyutping.emoji.EmojiCategory
+import org.jyutping.jyutping.extensions.convertedS2T
+import org.jyutping.jyutping.extensions.formattedCodePointsText
+import org.jyutping.jyutping.extensions.generateSymbol
+import org.jyutping.jyutping.extensions.isBasicLatinLetter
+import org.jyutping.jyutping.extensions.isCantoneseToneDigit
+import org.jyutping.jyutping.extensions.markFormatted
+import org.jyutping.jyutping.extensions.negative
+import org.jyutping.jyutping.extensions.toneConverted
+import org.jyutping.jyutping.feedback.SoundEffect
+import org.jyutping.jyutping.keyboard.Cangjie
+import org.jyutping.jyutping.keyboard.CangjieVariant
+import org.jyutping.jyutping.keyboard.CommentStyle
+import org.jyutping.jyutping.keyboard.ExtraBottomPadding
+import org.jyutping.jyutping.keyboard.ReturnKeyForm
+import org.jyutping.jyutping.keyboard.SpaceKeyForm
+import org.jyutping.jyutping.memory.InputMemoryHelper
+import org.jyutping.jyutping.memory.nineKeySearch
+import org.jyutping.jyutping.memory.suggest
+import org.jyutping.jyutping.models.BasicInputEvent
+import org.jyutping.jyutping.models.Candidate
+import org.jyutping.jyutping.models.CangjieConverter
+import org.jyutping.jyutping.models.CompositionType
+import org.jyutping.jyutping.models.Converter
+import org.jyutping.jyutping.models.InputKeyStyle
+import org.jyutping.jyutping.models.InputMethodMode
+import org.jyutping.jyutping.models.KeyboardCase
+import org.jyutping.jyutping.models.KeyboardForm
+import org.jyutping.jyutping.models.KeyboardInterface
+import org.jyutping.jyutping.models.KeyboardLayout
+import org.jyutping.jyutping.models.Lexicon
+import org.jyutping.jyutping.models.NineKeyResearcher
+import org.jyutping.jyutping.models.NineKeySegmenter
+import org.jyutping.jyutping.models.PinyinNineKeySegmenter
+import org.jyutping.jyutping.models.PinyinResearcher
+import org.jyutping.jyutping.models.PinyinSegmenter
+import org.jyutping.jyutping.models.PreferredInputMode
+import org.jyutping.jyutping.models.Researcher
+import org.jyutping.jyutping.models.RomanizationForm
+import org.jyutping.jyutping.models.Segmenter
+import org.jyutping.jyutping.models.Simplifier
+import org.jyutping.jyutping.models.Structure
+import org.jyutping.jyutping.models.VirtualInputKey
+import org.jyutping.jyutping.models.previewMark
+import org.jyutping.jyutping.models.previewMarkNormalized
+import org.jyutping.jyutping.models.schemeLength
+import org.jyutping.jyutping.ninekey.Combo
+import org.jyutping.jyutping.ninekey.SidebarEntry
+import org.jyutping.jyutping.numeric.NumericLayout
+import org.jyutping.jyutping.presets.AltPresetColor
+import org.jyutping.jyutping.presets.PresetColor
+import org.jyutping.jyutping.presets.PresetConstant
+import org.jyutping.jyutping.presets.PresetString
+import org.jyutping.jyutping.stroke.Stroke
+import org.jyutping.jyutping.stroke.StrokeLayout
+import org.jyutping.jyutping.stroke.StrokeVirtualKey
+import org.jyutping.jyutping.utilities.DatabasePreparer
+import kotlin.math.roundToInt
+import kotlin.properties.Delegates
+import kotlin.time.Duration.Companion.milliseconds
+
+class JyutpingInputMethodService: LifecycleInputMethodService(),
+        ViewModelStoreOwner,
+        SavedStateRegistryOwner {
+
+        override fun onEvaluateInputViewShown(): Boolean {
+                super.onEvaluateInputViewShown()
+                // Always show on-screen keyboard even if a hardware keyboard is connected
+                return true
+        }
+
+        /**
+         * Prevent the system from switching to the full-screen extract editor UI.
+         * Some devices/hosts cause the IME to enter a full-screen text box (with a submit
+         * button) in landscape. Returning false forces the IME to keep the input view
+         * anchored (inline) instead of using the extract/fullscreen UI.
+         */
+        override fun onEvaluateFullscreenMode() = false
+
+        private var canBlurWindow: Boolean = false
+        private val blurBlackList: Set<String> by lazy { setOf("zte", "nubia", "redmagic", "red magic") }
+        override fun onCreate() {
+                super.onCreate()
+                savedStateRegistryController.performRestore(null)
+                lifecycleScope.launch(Dispatchers.IO) {
+                        DatabasePreparer.prepare(applicationContext)
+                        memoryHelper.prepare()
+                }
+                val manufacturer = Build.MANUFACTURER.lowercase()
+                val brand = Build.BRAND.lowercase()
+                val shouldDisableBlur: Boolean = blurBlackList.contains(manufacturer) || blurBlackList.contains(brand)
+                canBlurWindow = if (shouldDisableBlur) false else (getSystemService(WindowManager::class.java)?.isCrossWindowBlurEnabled ?: false)
+                PresetColor.attach(canBlur = canBlurWindow)
+                if (canBlurWindow) {
+                        window?.window?.let { win ->
+                                win.addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED)
+                                val density = resources.displayMetrics.density
+                                val blurPixel = (50 * density).roundToInt()
+                                win.setBackgroundBlurRadius(blurPixel)
+                        }
+                }
+        }
+        override fun onConfigurationChanged(newConfig: Configuration) {
+                super.onConfigurationChanged(newConfig)
+
+                // Update view state based on hardware keyboard availability
+                if (hasHardwareKeyboard()) {
+                        if (!isPhysicalKeyboardActive.value) {
+                                showPhysicalKeyboardCandidates()
+                        }
+                } else {
+                        if (isPhysicalKeyboardActive.value) {
+                                showSoftKeyboard()
+                        }
+                }
+        }
+
+        override fun onCreateInputView(): View {
+                window?.window?.decorView?.let { decorView ->
+                        decorView.setViewTreeLifecycleOwner(this)
+                        decorView.setViewTreeViewModelStoreOwner(this)
+                        decorView.setViewTreeSavedStateRegistryOwner(this)
+                }
+                if (canBlurWindow) {
+                        val canNowBlur: Boolean = getSystemService(WindowManager::class.java)?.isCrossWindowBlurEnabled ?: false
+                        if (canNowBlur.negative) {
+                                canBlurWindow = false
+                                PresetColor.attach(canBlur = false)
+                        }
+                }
+                return ComposeKeyboardView(this)
+        }
+        override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
+                super.onStartInput(attribute, restarting)
+                inputClientMonitorJob?.cancel()
+                isPhysicalKeyboardActive.value = hasHardwareKeyboard()
+                val isNightMode: Boolean = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+                window?.window?.let { win ->
+                        WindowCompat.getInsetsController(win, win.decorView).isAppearanceLightNavigationBars = isNightMode.negative
+                        val bgColor: Color = if (isHighContrastPreferred.value) {
+                                if (isNightMode) AltPresetColor.darkBackground else AltPresetColor.lightBackground
+                        } else {
+                                if (isNightMode) PresetColor.darkBackground else PresetColor.lightBackground
+                        }
+                        val barColor: Color = if (canBlurWindow) bgColor else bgColor.copy(alpha = 1f)
+                        @Suppress("DEPRECATION")
+                        win.navigationBarColor = barColor.toArgb()
+                }
+                isDarkMode.value = isNightMode
+                inputMethodMode.value = fetchedInputMethodMode()
+                keyboardForm.value = KeyboardForm.Primary
+                compositionType.value = CompositionType.Primary
+                updateSpaceKeyForm()
+                updateReturnKeyForm(attribute)
+                inputClientMonitorJob = CoroutineScope(Dispatchers.Default).launch {
+                        while (isActive) {
+                                delay(800L.milliseconds) // 0.8s
+                                monitorInputClient()
+                        }
+                }
+        }
+        override fun onFinishInputView(finishingInput: Boolean) {
+                inputClientMonitorJob?.cancel()
+                suggestionJob?.cancel()
+                isPhysicalKeyboardActive.value = false
+                if (selectedLexicons.isNotEmpty()) {
+                        selectedLexicons.clear()
+                }
+                if (isBuffering.value) {
+                        val text = joinedBufferTexts()
+                        currentInputConnection.commitText(text, 1)
+                        clearBuffer()
+                }
+                if (candidates.value.isNotEmpty()) {
+                        candidates.value = emptyList()
+                        candidateState.value += 1L
+                }
+                super.onFinishInputView(finishingInput)
+        }
+
+        private var inputClientMonitorJob: Job? = null
+        private fun monitorInputClient() {
+                if (isBuffering.value) {
+                        val isTextEmpty = currentInputConnection.getTextBeforeCursor(1, 0).isNullOrEmpty()
+                        if (isTextEmpty) {
+                                clearBuffer()
+                        }
+                }
+        }
+
+        override val viewModelStore: ViewModelStore
+                get() = store
+        override val lifecycle: Lifecycle
+                get() = dispatcher.lifecycle
+
+        private val store = ViewModelStore()
+
+        private val savedStateRegistryController = SavedStateRegistryController.create(this)
+
+        override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
+
+        // References to views
+        val isPhysicalKeyboardActive = MutableStateFlow(false)
+
+        // Check if physical/hardware keyboard is available
+        private fun hasHardwareKeyboard(): Boolean {
+                val config = resources.configuration
+                return config.keyboard != Configuration.KEYBOARD_NOKEYS &&
+                       config.hardKeyboardHidden != Configuration.HARDKEYBOARDHIDDEN_YES
+        }
+
+        fun showPhysicalKeyboardCandidates() {
+                isPhysicalKeyboardActive.value = true
+        }
+
+        fun showSoftKeyboard() {
+                isPhysicalKeyboardActive.value = false
+        }
+
+        private val sharedPreferences by lazy { getSharedPreferences(UserSettingsKey.PreferencesFileName, MODE_PRIVATE) }
+
+        val isDarkMode: MutableStateFlow<Boolean> by lazy {
+                val isNightMode: Boolean = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+                MutableStateFlow(isNightMode)
+        }
+
+        // Last physical key pressed (for UI preview)
+        val lastPhysicalKey: MutableStateFlow<VirtualInputKey?> by lazy { MutableStateFlow(null) }
+
+        // Candidate offset for physical keyboard number selection
+        val candidateOffset: MutableStateFlow<Int> by lazy { MutableStateFlow(0) }
+
+        // Track if a key was pressed while Shift was down (to distinguish Shift-only press from Shift+Key)
+        private var keyPressedDuringShift = false
+
+        private fun emitPhysicalKeyPreview(inputKey: VirtualInputKey) {
+                lastPhysicalKey.value = inputKey
+                // audio/haptic feedback
+                audioFeedback(SoundEffect.Click)
+        }
+
+        val spaceKeyForm: MutableStateFlow<SpaceKeyForm> by lazy { MutableStateFlow(SpaceKeyForm.Fallback) }
+        private fun updateSpaceKeyForm() {
+                val isSimplified: Boolean = characterStandard.value.isMutilated
+                val newForm: SpaceKeyForm = when {
+                        inputMethodMode.value.isABC -> SpaceKeyForm.English
+                        keyboardForm.value.isDedicatedNumbers -> SpaceKeyForm.Fallback
+                        isBuffering.value -> {
+                                if (candidates.value.isEmpty()) {
+                                        if (isSimplified) SpaceKeyForm.ConfirmSimplified else SpaceKeyForm.Confirm
+                                } else {
+                                        if (isSimplified) SpaceKeyForm.SelectSimplified else SpaceKeyForm.Select
+                                }
+                        }
+                        else -> when (keyboardCase.value) {
+                                KeyboardCase.Lowercased -> if (isSimplified) SpaceKeyForm.LowercasedSimplified else SpaceKeyForm.Lowercased
+                                KeyboardCase.Uppercased -> if (isSimplified) SpaceKeyForm.UppercasedSimplified else SpaceKeyForm.Uppercased
+                                KeyboardCase.CapsLocked -> if (isSimplified) SpaceKeyForm.CapsLockedSimplified else SpaceKeyForm.CapsLocked
+                        }
+                }
+                if (spaceKeyForm.value != newForm) {
+                        spaceKeyForm.value = newForm
+                }
+        }
+
+        private val returnKeyForm: MutableStateFlow<ReturnKeyForm> by lazy { MutableStateFlow(ReturnKeyForm.StandbyTraditional) }
+        val returnKeyText: MutableStateFlow<String?> by lazy { MutableStateFlow(null) }
+        private fun updateReturnKeyForm(editorInfo: EditorInfo? = null) {
+                val newForm: ReturnKeyForm = when (inputMethodMode.value) {
+                        InputMethodMode.ABC -> ReturnKeyForm.StandbyABC
+                        InputMethodMode.Cantonese -> {
+                                if (isBuffering.value) {
+                                        if (characterStandard.value.isMutilated) ReturnKeyForm.BufferingSimplified else ReturnKeyForm.BufferingTraditional
+                                } else {
+                                        if (characterStandard.value.isMutilated) ReturnKeyForm.StandbySimplified else ReturnKeyForm.StandbyTraditional
+                                }
+                        }
+                }
+                if (returnKeyForm.value != newForm) {
+                        returnKeyForm.value = newForm
+                }
+                val imeAction = (editorInfo?.imeOptions ?: currentInputEditorInfo.imeOptions).and(EditorInfo.IME_MASK_ACTION)
+                val newKeyText: String? = newForm.keyText(imeAction)
+                if (returnKeyText.value != newKeyText) {
+                        returnKeyText.value = newKeyText
+                }
+        }
+
+        val inputMethodMode: MutableStateFlow<InputMethodMode> by lazy { MutableStateFlow(InputMethodMode.Cantonese) }
+        private fun fetchedInputMethodMode(): InputMethodMode = when (preferredInputMode.value) {
+                PreferredInputMode.Cantonese -> InputMethodMode.Cantonese
+                PreferredInputMode.ABC -> InputMethodMode.ABC
+                PreferredInputMode.Previous -> {
+                        val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.LatestInputMethodMode, InputMethodMode.Cantonese.identifier)
+                        InputMethodMode.modeOf(savedValue)
+                }
+        }
+        fun toggleInputMethodMode() {
+                if (inputMethodMode.value.isCantonese && isBuffering.value) {
+                        val text = joinedBufferTexts()
+                        currentInputConnection.commitText(text, 1)
+                        clearBuffer()
+                }
+                val newMode: InputMethodMode = if (inputMethodMode.value.isABC) InputMethodMode.Cantonese else InputMethodMode.ABC
+                inputMethodMode.value = newMode
+                updateSpaceKeyForm()
+                updateReturnKeyForm()
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.LatestInputMethodMode, newMode.identifier)
+                }
+        }
+
+        val keyboardInterface: MutableStateFlow<KeyboardInterface> by lazy { MutableStateFlow(KeyboardInterface.PhonePortrait) }
+        fun updateKeyboardInterface(keyboardInterface: KeyboardInterface) {
+                if (this.keyboardInterface.value != keyboardInterface) {
+                        this.keyboardInterface.value = keyboardInterface
+                }
+        }
+
+        val compositionType: MutableStateFlow<CompositionType> by lazy { MutableStateFlow(CompositionType.Primary) }
+        private fun updateCompositionType(type: CompositionType) {
+                if (compositionType.value != type) {
+                        compositionType.value = type
+                }
+        }
+
+        val keyboardForm: MutableStateFlow<KeyboardForm> by lazy { MutableStateFlow(KeyboardForm.Primary) }
+        fun transformTo(destination: KeyboardForm) {
+                if (isBuffering.value) {
+                        if (destination.isBufferable.negative) {
+                                val text = joinedBufferTexts()
+                                currentInputConnection.commitText(text, 1)
+                                clearBuffer()
+                        }
+                }
+                if (destination == KeyboardForm.EditingPanel) {
+                        isClipboardEmpty.value = isCurrentClipboardEmpty()
+                }
+                keyboardForm.value = destination
+                adjustKeyboardCase()
+                updateSpaceKeyForm()
+        }
+
+        val keyboardCase: MutableStateFlow<KeyboardCase> by lazy { MutableStateFlow(KeyboardCase.Lowercased) }
+        private fun updateKeyboardCase(case: KeyboardCase) {
+                keyboardCase.value = case
+                updateSpaceKeyForm()
+        }
+        fun shift() {
+                val newCase: KeyboardCase = when (keyboardCase.value) {
+                        KeyboardCase.Lowercased -> KeyboardCase.Uppercased
+                        KeyboardCase.Uppercased -> KeyboardCase.Lowercased
+                        KeyboardCase.CapsLocked -> KeyboardCase.Lowercased
+                }
+                updateKeyboardCase(newCase)
+        }
+        fun doubleShift() {
+                val newCase: KeyboardCase = when (keyboardCase.value) {
+                        KeyboardCase.Lowercased -> KeyboardCase.CapsLocked
+                        KeyboardCase.Uppercased -> KeyboardCase.CapsLocked
+                        KeyboardCase.CapsLocked -> KeyboardCase.Lowercased
+                }
+                updateKeyboardCase(newCase)
+        }
+        private fun adjustKeyboardCase() {
+                if (keyboardCase.value.isUppercased) {
+                        updateKeyboardCase(KeyboardCase.Lowercased)
+                }
+        }
+
+        val preferredTraditionalStandard: MutableStateFlow<CharacterStandard> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.TraditionalCharacterStandard, 0)
+                if (savedValue == 0) {
+                        val legacySavedValue: Int = sharedPreferences.getInt(UserSettingsKey.LegacyCharacterStandard, CharacterStandard.Preset.identifier)
+                        val standard: CharacterStandard = when (legacySavedValue) {
+                                2 -> CharacterStandard.HongKong
+                                3 -> CharacterStandard.Taiwan
+                                else -> CharacterStandard.Preset
+                        }
+                        sharedPreferences.edit {
+                                putInt(UserSettingsKey.TraditionalCharacterStandard, standard.identifier)
+                        }
+                        MutableStateFlow(standard)
+                } else {
+                        val standard: CharacterStandard = CharacterStandard.standardOf(savedValue)
+                        MutableStateFlow(standard)
+                }
+        }
+        fun updatePreferredTraditionalStandard(standard: CharacterStandard) {
+                preferredTraditionalStandard.value = standard
+                if (characterStandard.value.isTraditional) {
+                        characterStandard.value = standard
+                }
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.TraditionalCharacterStandard, standard.identifier)
+                }
+        }
+        val characterStandard: MutableStateFlow<CharacterStandard> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.CharacterScriptVariant, 1)
+                val standard: CharacterStandard = if (savedValue == 2) CharacterStandard.Mutilated else preferredTraditionalStandard.value
+                MutableStateFlow(standard)
+        }
+        fun toggleCharacterScriptVariant() {
+                val newStandard: CharacterStandard = if (characterStandard.value.isMutilated) preferredTraditionalStandard.value else CharacterStandard.Mutilated
+                characterStandard.value = newStandard
+                updateSpaceKeyForm()
+                updateReturnKeyForm()
+                val value: Int = if (newStandard.isMutilated) 2 else 1
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.CharacterScriptVariant, value)
+                }
+        }
+
+        val isAudioFeedbackOn: MutableStateFlow<Boolean> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.AudioFeedback, 101)
+                val isOn: Boolean = (savedValue == 101)
+                MutableStateFlow(isOn)
+        }
+        fun updateAudioFeedback(isOn: Boolean) {
+                isAudioFeedbackOn.value = isOn
+                val value: Int = if (isOn) 101 else 102
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.AudioFeedback, value)
+                }
+        }
+        val isHapticFeedbackOn: MutableStateFlow<Boolean> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.HapticFeedback, 101)
+                val isOn: Boolean = (savedValue == 101)
+                MutableStateFlow(isOn)
+        }
+        fun updateHapticFeedback(isOn: Boolean) {
+                isHapticFeedbackOn.value = isOn
+                val value: Int = if (isOn) 101 else 102
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.HapticFeedback, value)
+                }
+        }
+        val preferredInputMode: MutableStateFlow<PreferredInputMode> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.PreferredInputMethodMode, PreferredInputMode.Cantonese.identifier)
+                val mode = PreferredInputMode.modeOf(savedValue)
+                MutableStateFlow(mode)
+        }
+        fun updatePreferredInputMode(mode: PreferredInputMode) {
+                preferredInputMode.value = mode
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.PreferredInputMethodMode, mode.identifier)
+                }
+        }
+        val keyboardLayout: MutableStateFlow<KeyboardLayout> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.KeyboardLayout, KeyboardLayout.Qwerty.identifier)
+                val layout = KeyboardLayout.layoutOf(savedValue)
+                MutableStateFlow(layout)
+        }
+        fun updateKeyboardLayout(layout: KeyboardLayout) {
+                keyboardLayout.value = layout
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.KeyboardLayout, layout.identifier)
+                }
+        }
+
+        /** Use 10-key digit keypad instead of normal numeric keyboard */
+        val useDedicatedNumberPad: MutableStateFlow<Boolean> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.NumericLayout, NumericLayout.Default.identifier)
+                val isUsing: Boolean = (savedValue == NumericLayout.Dedicated.identifier)
+                MutableStateFlow(isUsing)
+        }
+        fun updateDedicatedNumberPadUsage(isOn: Boolean) {
+                useDedicatedNumberPad.value = isOn
+                val value: Int = if (isOn) NumericLayout.Dedicated.identifier else NumericLayout.Default.identifier
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.NumericLayout, value)
+                }
+        }
+
+        /** Use the 9-key (T9) layout for Stroke reverse lookup instead of the QWERTY layout */
+        val useDedicatedStrokeLayout: MutableStateFlow<Boolean> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.StrokeLayout, StrokeLayout.Default.identifier)
+                val isUsing: Boolean = (savedValue == StrokeLayout.Dedicated.identifier)
+                MutableStateFlow(isUsing)
+        }
+        fun updateDedicatedStrokeLayoutUsage(isOn: Boolean) {
+                useDedicatedStrokeLayout.value = isOn
+                val value: Int = if (isOn) StrokeLayout.Dedicated.identifier else StrokeLayout.Default.identifier
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.StrokeLayout, value)
+                }
+        }
+
+        val needsNumberRow: MutableStateFlow<Boolean> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.NumberRow, 0)
+                val needs: Boolean = (savedValue == 1)
+                MutableStateFlow(needs)
+        }
+        fun updateNeedsNumberRow(needs: Boolean) {
+                needsNumberRow.value = needs
+                val value: Int = if (needs) 1 else 2
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.NumberRow, value)
+                }
+        }
+
+        val showLowercaseKeys: MutableStateFlow<Boolean> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.KeyCase, 1)
+                val isLowercase: Boolean = (savedValue == 1)
+                MutableStateFlow(isLowercase)
+        }
+        fun updateShowLowercaseKeys(isOn: Boolean) {
+                showLowercaseKeys.value = isOn
+                val value2save: Int = if (isOn) 1 else 2
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.KeyCase, value2save)
+                }
+        }
+        val previewKeyText: MutableStateFlow<Boolean> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.KeyTextPreview, 1)
+                val shouldPreview: Boolean = (savedValue == 1)
+                MutableStateFlow(shouldPreview)
+        }
+        fun updatePreviewKeyText(isOn: Boolean) {
+                previewKeyText.value = isOn
+                val value2save: Int = if (isOn) 1 else 2
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.KeyTextPreview, value2save)
+                }
+        }
+        val isHighContrastPreferred: MutableStateFlow<Boolean> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.HighContrast, 0)
+                val isPreferred: Boolean = (savedValue == 1)
+                MutableStateFlow(isPreferred)
+        }
+        fun updateHighContrast(isOn: Boolean) {
+                isHighContrastPreferred.value = isOn
+                val value2save: Int = if (isOn) 1 else 2
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.HighContrast, value2save)
+                }
+        }
+        val needsInputModeSwitchKey: MutableStateFlow<Boolean> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.GlobeKey, 0)
+                val needs: Boolean = (savedValue == 1)
+                MutableStateFlow(needs)
+        }
+        fun updateNeedsInputModeSwitchKey(needs: Boolean) {
+                needsInputModeSwitchKey.value = needs
+                val value2save: Int = if (needs) 1 else 2
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.GlobeKey, value2save)
+                }
+        }
+        val needsLeftKey: MutableStateFlow<Boolean> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.LeftKey, 1)
+                val needs: Boolean = (savedValue == 1)
+                MutableStateFlow(needs)
+        }
+        fun updateNeedsLeftKey(needs: Boolean) {
+                needsLeftKey.value = needs
+                val value2save: Int = if (needs) 1 else 2
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.LeftKey, value2save)
+                }
+        }
+        val needsRightKey: MutableStateFlow<Boolean> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.RightKey, 1)
+                val needs: Boolean = (savedValue == 1)
+                MutableStateFlow(needs)
+        }
+        fun updateNeedsRightKey(needs: Boolean) {
+                needsRightKey.value = needs
+                val value2save: Int = if (needs) 1 else 2
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.RightKey, value2save)
+                }
+        }
+        val keyHeightOffset: MutableStateFlow<Int> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.KeyHeightOffset, 0)
+                MutableStateFlow(savedValue)
+        }
+        fun updateKeyHeightOffset(offset: Int) {
+                keyHeightOffset.value = offset
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.KeyHeightOffset, offset)
+                }
+        }
+        val extraBottomPadding: MutableStateFlow<ExtraBottomPadding> by lazy {
+                val savedIdentifier: Int = sharedPreferences.getInt(UserSettingsKey.ExtraBottomPadding, ExtraBottomPadding.None.identifier)
+                val paddingLevel = ExtraBottomPadding.paddingLevelOf(savedIdentifier)
+                MutableStateFlow(paddingLevel)
+        }
+        fun updateExtraBottomPadding(paddingLevel: ExtraBottomPadding) {
+                extraBottomPadding.value = paddingLevel
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.ExtraBottomPadding, paddingLevel.identifier)
+                }
+        }
+        val inputKeyStyle: MutableStateFlow<InputKeyStyle> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.InputKeyStyle, InputKeyStyle.Clear.identifier)
+                val style: InputKeyStyle = InputKeyStyle.styleOf(savedValue)
+                MutableStateFlow(style)
+        }
+        fun updateInputKeyStyle(style: InputKeyStyle) {
+                inputKeyStyle.value = style
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.InputKeyStyle, style.identifier)
+                }
+        }
+        val commentStyle: MutableStateFlow<CommentStyle> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.CommentStyle, CommentStyle.AboveCandidates.identifier)
+                val style: CommentStyle = CommentStyle.styleOf(savedValue)
+                MutableStateFlow(style)
+        }
+        fun updateCommentStyle(style: CommentStyle) {
+                commentStyle.value = style
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.CommentStyle, style.identifier)
+                }
+        }
+        val cangjieVariant: MutableStateFlow<CangjieVariant> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.CangjieVariant, CangjieVariant.Cangjie5.identifier)
+                val variant: CangjieVariant = CangjieVariant.variantOf(savedValue)
+                MutableStateFlow(variant)
+        }
+        fun updateCangjieVariant(variant: CangjieVariant) {
+                cangjieVariant.value = variant
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.CangjieVariant, variant.identifier)
+                }
+        }
+        val isEmojiSuggestionsOn: MutableStateFlow<Boolean> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.Emoji, 1)
+                val isOn: Boolean = (savedValue == 1)
+                MutableStateFlow(isOn)
+        }
+        fun updateEmojiSuggestionsState(isOn: Boolean) {
+                isEmojiSuggestionsOn.value = isOn
+                val value2save: Int = if (isOn) 1 else 2
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.Emoji, value2save)
+                }
+        }
+        val isEnglishSuggestionsOn: MutableStateFlow<Boolean> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.EnglishSuggestions, 1)
+                val isOn: Boolean = (savedValue == 1)
+                MutableStateFlow(isOn)
+        }
+        fun updateEnglishSuggestionsState(isOn: Boolean) {
+                isEnglishSuggestionsOn.value = isOn
+                val value2save: Int = if (isOn) 1 else 2
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.EnglishSuggestions, value2save)
+                }
+        }
+        val isInputMemoryOn: MutableStateFlow<Boolean> by lazy {
+                val savedValue: Int = sharedPreferences.getInt(UserSettingsKey.InputMemory, 1)
+                val isOn: Boolean = (savedValue == 1)
+                MutableStateFlow(isOn)
+        }
+        fun updateInputMemoryState(isOn: Boolean) {
+                isInputMemoryOn.value = isOn
+                val value2save: Int = if (isOn) 1 else 2
+                sharedPreferences.edit {
+                        putInt(UserSettingsKey.InputMemory, value2save)
+                }
+        }
+
+        private val selectedLexicons: MutableList<Lexicon> by lazy { mutableListOf() }
+        private val memoryHelper by lazy { InputMemoryHelper(applicationContext) }
+
+        fun forgetCandidate(candidate: Candidate? = null, index: Int? = null) = when {
+                candidate != null -> memoryHelper.forget(candidate.lexicon)
+                index != null -> candidates.value.getOrNull(index)?.let { memoryHelper.forget(it.lexicon) }
+                else -> memoryHelper.forget(inspectingCandidate.value.lexicon)
+        }
+        fun clearInputMemory() {
+                memoryHelper.deleteAll()
+                clearLocalEmojiFrequent()
+        }
+
+        //region EmojiBoard
+        private val defaultFrequentEmojis: List<Emoji> by lazy { Elephant.fetchDefaultFrequentEmojis() }
+        private val emojiSequence: List<Emoji> by lazy { Elephant.fetchEmojiSequence() }
+        val categoryStartIndexMap: MutableStateFlow<Map<EmojiCategory, Int>> by lazy {
+                MutableStateFlow(Emoji.categoryStartIndexMap(emojiSequence))
+        }
+        val emojiBoardEmojis: MutableStateFlow<List<Emoji>> by lazy {
+                MutableStateFlow(frequentEmojis + emojiSequence)
+        }
+        private val frequentEmojis: MutableList<Emoji> by lazy {
+                val savedText: String = (sharedPreferences.getString(UserSettingsKey.EmojiFrequent, PresetString.EMPTY) ?: PresetString.EMPTY)
+                val codePointTexts: List<String> = savedText.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                val emojiTexts = codePointTexts.map { it.generateSymbol() }
+                if (emojiTexts.count() != PresetConstant.FrequentEmojiCount) {
+                        defaultFrequentEmojis.toMutableList()
+                } else {
+                        Emoji.generateFrequentEmojis(emojiTexts).toMutableList()
+                }
+        }
+        fun updateEmojiFrequent(latest: Emoji) {
+                val previous: List<String> = frequentEmojis.map { it.text }
+                val combined: List<String> = (listOf(latest.text) + previous).distinct()
+                if (combined.count() < PresetConstant.FrequentEmojiCount) return
+                val update: List<String> = combined.take(PresetConstant.FrequentEmojiCount)
+                val value2save: String = update.joinToString(separator = ",") { it.formattedCodePointsText() }
+                sharedPreferences.edit {
+                        putString(UserSettingsKey.EmojiFrequent, value2save)
+                }
+                frequentEmojis.clear()
+                val newFrequentEmojis = Emoji.generateFrequentEmojis(update)
+                frequentEmojis.addAll(newFrequentEmojis)
+                emojiBoardEmojis.value = newFrequentEmojis + emojiSequence
+        }
+        private fun clearLocalEmojiFrequent() {
+                sharedPreferences.edit {
+                        remove(UserSettingsKey.EmojiFrequent)
+                }
+                frequentEmojis.clear()
+                frequentEmojis.addAll(defaultFrequentEmojis)
+                emojiBoardEmojis.value = defaultFrequentEmojis + emojiSequence
+        }
+        //endregion
+
+        val inspectingCandidate: MutableStateFlow<Candidate> by lazy { MutableStateFlow(Candidate.sample) }
+        val inspectedMemory: MutableStateFlow<Pair<Long, Long>> by lazy { MutableStateFlow(Pair(0L, 0L)) }
+        fun inspect(candidate: Candidate? = null, index: Int? = null) {
+                (candidate ?: index?.let { candidates.value.getOrNull(it) })?.let {
+                        inspectedMemory.value = memoryHelper.inspect(it.lexicon)
+                        inspectingCandidate.value = it
+                        transformTo(KeyboardForm.DetailInspecting)
+                }
+        }
+
+        val candidateState: MutableStateFlow<Long> by lazy {
+                Elephant.connectDatabase(applicationContext)
+                Segmenter.prepare()
+                PinyinSegmenter.prepare()
+                NineKeySegmenter.prepare()
+                PinyinNineKeySegmenter.prepare()
+                MutableStateFlow(1L)
+        }
+        val candidates: MutableStateFlow<List<Candidate>> by lazy { MutableStateFlow(emptyList()) }
+        private var suggestionJob: Job? = null
+        private var inputLengthSequence: List<Int> = emptyList()
+        private var bufferEvents: List<BasicInputEvent> by Delegates.observable(emptyList()) { _, _, newValue ->
+                suggestionJob?.cancel()
+                candidateOffset.value = 0
+                val sessionState: Long = candidateState.value + 1L
+                when (newValue.firstOrNull()?.key) {
+                        null -> {
+                                inputLengthSequence = emptyList()
+                                currentInputConnection.setComposingText(PresetString.EMPTY, 1)
+                                currentInputConnection.finishComposingText()
+                                if (isBuffering.value) {
+                                        if (isInputMemoryOn.value && selectedLexicons.isNotEmpty()) {
+                                                Lexicon.concatenate(selectedLexicons)?.let { memoryHelper.handle(it) }
+                                        }
+                                        selectedLexicons.clear()
+                                        isBuffering.value = false
+                                }
+                                when (keyboardForm.value) {
+                                        KeyboardForm.CandidateBoard,
+                                        KeyboardForm.DedicatedStroke -> transformTo(KeyboardForm.Primary)
+                                        else -> {}
+                                }
+                                updateCompositionType(CompositionType.Primary)
+                                updateSpaceKeyForm()
+                                updateReturnKeyForm()
+                                candidates.value = emptyList()
+                                candidateState.value += 1L
+                        }
+                        VirtualInputKey.letterR -> suggestionJob = CoroutineScope(Dispatchers.Default).launch {
+                                val allKeys = bufferEvents.map { it.key }
+                                val textMarksDeferred = async { if (isEnglishSuggestionsOn.value) Elephant.searchPlainTexts(allKeys) else emptyList() }
+                                val textMarks = textMarksDeferred.await()
+                                val keys = allKeys.drop(1)
+                                val segmentation = PinyinSegmenter.segment(keys)
+                                val queriedDeferred = async { PinyinResearcher.reverseLookup(keys, segmentation) }
+                                val queried = queriedDeferred.await()
+                                val suggestions = Converter.transformed(lexicons = (textMarks + queried), commentForm = RomanizationForm.Full, charset = characterStandard.value, sessionState = sessionState)
+                                val bufferText = joinedBufferTexts()
+                                val tailMark: String = if (keys.isEmpty()) PresetString.EMPTY else run {
+                                        val firstLexicon = queried.firstOrNull()
+                                        if (firstLexicon != null && firstLexicon.inputCount == keys.size) return@run firstLexicon.mark
+                                        val bestScheme = segmentation.firstOrNull()
+                                        val leadingLength: Int = bestScheme?.schemeLength ?: 0
+                                        val leadingText: String = bestScheme?.previewMark ?: PresetString.EMPTY
+                                        when (leadingLength) {
+                                                0 -> bufferText.drop(1)
+                                                keys.size -> leadingText
+                                                else -> (leadingText + PresetString.SPACE + bufferText.drop(leadingLength + 1))
+                                        }
+                                }
+                                val mark: String = if (keys.isEmpty()) bufferText.take(1) else (bufferText.take(1) + PresetString.SPACE + tailMark)
+                                withContext(Dispatchers.Main) {
+                                        updateCompositionType(CompositionType.Pinyin)
+                                        currentInputConnection.setComposingText(mark, 1)
+                                        candidates.value = suggestions
+                                        updateInputSessionStates()
+                                }
+                        }
+                        VirtualInputKey.letterV -> suggestionJob = CoroutineScope(Dispatchers.Default).launch {
+                                val allKeys = bufferEvents.map { it.key }
+                                val textMarksDeferred = async { if (isEnglishSuggestionsOn.value) Elephant.searchPlainTexts(allKeys) else emptyList() }
+                                val textMarks = textMarksDeferred.await()
+                                val keys = allKeys.drop(1)
+                                val cangjieRadicals = keys.mapNotNull { CangjieConverter.cangjieOf(it) }
+                                val isValidSequence: Boolean = cangjieRadicals.isNotEmpty() && (cangjieRadicals.size == keys.size)
+                                val mark: String = if (isValidSequence) cangjieRadicals.joinToString(separator = PresetString.EMPTY) else joinedBufferTexts()
+                                val queried: List<Lexicon> = if (isValidSequence.negative) emptyList() else run {
+                                        val queriedDeferred = async { Cangjie.reverseLookup(keys, cangjieVariant.value) }
+                                        queriedDeferred.await()
+                                }
+                                val suggestions = Converter.transformed(lexicons = (textMarks + queried), commentForm = RomanizationForm.Full, charset = characterStandard.value, sessionState = sessionState)
+                                withContext(Dispatchers.Main) {
+                                        updateCompositionType(CompositionType.Cangjie)
+                                        currentInputConnection.setComposingText(mark, 1)
+                                        candidates.value = suggestions
+                                        updateInputSessionStates()
+                                }
+                        }
+                        VirtualInputKey.letterX -> suggestionJob = CoroutineScope(Dispatchers.Default).launch {
+                                val allKeys = bufferEvents.map { it.key }
+                                val textMarksDeferred = async { if (isEnglishSuggestionsOn.value) Elephant.searchPlainTexts(allKeys) else emptyList() }
+                                val textMarks = textMarksDeferred.await()
+                                val keys = allKeys.drop(1)
+                                val isValidSequence: Boolean = keys.isNotEmpty() && StrokeVirtualKey.isValidStrokes(keys)
+                                val mark: String = if (isValidSequence) StrokeVirtualKey.displayStrokesOf(keys) else joinedBufferTexts()
+                                val queried: List<Lexicon> = if (isValidSequence.negative) emptyList() else run {
+                                        val queriedDeferred = async { Stroke.reverseLookup(keys) }
+                                        queriedDeferred.await()
+                                }
+                                val suggestions = Converter.transformed(lexicons = (textMarks + queried), commentForm = RomanizationForm.Full, charset = characterStandard.value, sessionState = sessionState)
+                                withContext(Dispatchers.Main) {
+                                        if (useDedicatedStrokeLayout.value && keyboardForm.value.isDedicatedStroke.negative) {
+                                                transformTo(KeyboardForm.DedicatedStroke)
+                                        } else {
+                                                updateCompositionType(CompositionType.Stroke)
+                                        }
+                                        currentInputConnection.setComposingText(mark, 1)
+                                        candidates.value = suggestions
+                                        updateInputSessionStates()
+                                }
+                        }
+                        VirtualInputKey.letterQ -> suggestionJob = CoroutineScope(Dispatchers.Default).launch {
+                                val allKeys = bufferEvents.map { it.key }
+                                val textMarksDeferred = async { if (isEnglishSuggestionsOn.value) Elephant.searchPlainTexts(allKeys) else emptyList() }
+                                val textMarks = textMarksDeferred.await()
+                                val keys = allKeys.drop(1)
+                                val segmentation = Segmenter.segment(keys)
+                                val queried: List<Lexicon> = if (keys.isEmpty()) emptyList() else run {
+                                        val queriedDeferred = async { Structure.reverseLookup(keys, segmentation) }
+                                        queriedDeferred.await()
+                                }
+                                val suggestions = Converter.transformed(lexicons = (textMarks + queried), commentForm = RomanizationForm.Full, charset = characterStandard.value, sessionState = sessionState)
+                                val bufferText = joinedBufferTexts()
+                                val tailMark: String = if (keys.isEmpty()) PresetString.EMPTY else run {
+                                        val isPeculiar = newValue.any { it.isCapitalized } || keys.any { it.isSyllableLetter.negative }
+                                        if (isPeculiar) return@run bufferText.drop(1).toneConverted().markFormatted()
+                                        val bestScheme = segmentation.firstOrNull()
+                                        val leadingLength: Int = bestScheme?.schemeLength ?: 0
+                                        val leadingMark: String = bestScheme?.previewMark ?: PresetString.EMPTY
+                                        when (leadingLength) {
+                                                0 -> bufferText.drop(1)
+                                                keys.size -> leadingMark
+                                                else -> (leadingMark + PresetString.SPACE + bufferText.drop(leadingLength + 1))
+                                        }
+                                }
+                                val mark: String = if (keys.isEmpty()) bufferText.take(1) else (bufferText.take(1) + PresetString.SPACE + tailMark)
+                                withContext(Dispatchers.Main) {
+                                        currentInputConnection.setComposingText(mark, 1)
+                                        candidates.value = suggestions
+                                        updateInputSessionStates()
+                                }
+                        }
+                        else -> suggestionJob = CoroutineScope(Dispatchers.Default).launch {
+                                val keys = newValue.map { it.key }
+                                val textMarksDeferred = async { if (isEnglishSuggestionsOn.value) Elephant.searchPlainTexts(keys) else emptyList() }
+                                val textMarks = textMarksDeferred.await()
+                                val text = keys.joinToString(separator = PresetString.EMPTY) { it.text }
+                                val segmentation = Segmenter.segment(keys)
+                                val memoryDeferred = async { if (isInputMemoryOn.value) memoryHelper.suggest(keys = keys, segmentation = segmentation) else emptyList() }
+                                val symbolsDeferred = async { if (isEmojiSuggestionsOn.value) Elephant.searchSymbols(keys = keys, segmentation = segmentation) else emptyList() }
+                                val queriedDeferred = async { Researcher.suggest(keys = keys, segmentation = segmentation) }
+                                val memory = memoryDeferred.await()
+                                val symbols = symbolsDeferred.await()
+                                val queried = queriedDeferred.await()
+                                val suggestions = Converter.dispatch(
+                                        memory = memory,
+                                        defined = emptyList(),
+                                        texts = textMarks,
+                                        symbols = symbols,
+                                        queried = queried,
+                                        commentForm = RomanizationForm.Full,
+                                        charset = characterStandard.value,
+                                        sessionState = sessionState
+                                )
+                                val mark: String = run {
+                                        val isPeculiar = newValue.any { it.case.isCapitalized } || keys.any { it.isSyllableLetter.negative }
+                                        if (isPeculiar) return@run newValue.previewMarkNormalized()
+                                        val firstCandidate = suggestions.firstOrNull()
+                                        if (firstCandidate?.lexicon?.inputCount == keys.size) return@run firstCandidate.lexicon.mark
+                                        val bestScheme = segmentation.firstOrNull()
+                                        val leadingLength: Int = bestScheme?.schemeLength ?: 0
+                                        val leadingMark: String = bestScheme?.previewMark ?: PresetString.EMPTY
+                                        when (leadingLength) {
+                                                0 -> joinedBufferTexts()
+                                                text.length -> leadingMark
+                                                else -> (leadingMark + PresetString.SPACE + joinedBufferTexts().drop(leadingLength))
+                                        }
+                                }
+                                withContext(Dispatchers.Main) {
+                                        currentInputConnection.setComposingText(mark, 1)
+                                        candidates.value = suggestions
+                                        updateInputSessionStates()
+                                }
+                        }
+                }
+        }
+        private fun updateInputSessionStates() {
+                if (isBuffering.value.negative) {
+                        isBuffering.value = true
+                }
+                candidateState.value += 1L
+                updateSpaceKeyForm()
+                updateReturnKeyForm()
+        }
+
+        val isBuffering: MutableStateFlow<Boolean> by lazy { MutableStateFlow(false) }
+        fun clearBuffer() {
+                inputLengthSequence = emptyList()
+                if (bufferEvents.isNotEmpty()) {
+                        bufferEvents = emptyList()
+                }
+                if (bufferCombos.isNotEmpty()) {
+                        bufferCombos = emptyList()
+                }
+        }
+        private fun joinedBufferTexts(): String = bufferEvents.joinToString(separator = PresetString.EMPTY) { if (it.case.isLowercased) it.key.text else it.key.text.uppercase() }
+        fun handle(key: VirtualInputKey) {
+                val isCantoneseComposeMode: Boolean = inputMethodMode.value.isCantonese && keyboardForm.value.isBufferable
+                val shouldAppendEvent: Boolean = key.isLetter || (isBuffering.value && (key.isToneNumber || key.isApostrophe))
+                if (isCantoneseComposeMode && shouldAppendEvent) {
+                        val newEvent = BasicInputEvent(key = key, case = keyboardCase.value)
+                        inputLengthSequence = inputLengthSequence + 1
+                        bufferEvents = bufferEvents + newEvent
+                } else if (isBuffering.value) {
+                        val keyText: String = if (keyboardCase.value.isLowercased) key.text else key.text.uppercase()
+                        val text: String = joinedBufferTexts() + keyText
+                        currentInputConnection.commitText(text, 1)
+                        clearBuffer()
+                } else {
+                        val text: String = if (keyboardCase.value.isLowercased) key.text else key.text.uppercase()
+                        currentInputConnection.commitText(text, 1)
+                }
+                adjustKeyboardCase()
+        }
+        fun process(text: String) {
+                val shouldAppendEvents: Boolean = inputMethodMode.value.isCantonese && keyboardForm.value.isBufferable
+                if (shouldAppendEvents.negative) {
+                        currentInputConnection.commitText(text, 1)
+                        adjustKeyboardCase()
+                        return
+                }
+                val firstCharacter: Char? = text.firstOrNull()
+                val shouldAppendText: Boolean = (firstCharacter?.isBasicLatinLetter == true) || (isBuffering.value && firstCharacter?.isCantoneseToneDigit == true)
+                if (shouldAppendText.negative) {
+                        if (isBuffering.value) {
+                                val bufferedText: String = joinedBufferTexts() + text
+                                currentInputConnection.commitText(bufferedText, 1)
+                                clearBuffer()
+                        } else {
+                                currentInputConnection.commitText(text, 1)
+                        }
+                        adjustKeyboardCase()
+                        return
+                }
+                val keys = text.lowercase().mapNotNull { VirtualInputKey.matchVirtualInputKey(it) }
+                if (keys.isEmpty()) {
+                        currentInputConnection.commitText(text, 1)
+                        adjustKeyboardCase()
+                        return
+                }
+                val shouldConvertKeys: Boolean = keyboardLayout.value.isTripleStroke &&
+                        (inputLengthSequence.lastOrNull() == 2) &&
+                        (keys == VirtualInputKey.gwInputKeys) &&
+                        (bufferEvents.takeLast(2).map { it.key } == VirtualInputKey.gwInputKeys)
+                val newKeys: List<VirtualInputKey> = if (shouldConvertKeys) VirtualInputKey.kwInputKeys else keys
+                val case = keyboardCase.value
+                val newEvents = newKeys.map { BasicInputEvent(key = it, case = case) }
+                if (shouldConvertKeys) {
+                        bufferEvents = bufferEvents.dropLast(2) + newEvents
+                } else {
+                        inputLengthSequence = inputLengthSequence + keys.size
+                        bufferEvents = bufferEvents + newEvents
+                }
+                adjustKeyboardCase()
+        }
+        fun input(text: String) {
+                currentInputConnection.commitText(text, 1)
+                adjustKeyboardCase()
+        }
+        fun nineKeyProcess(combo: Combo) {
+                bufferCombos = bufferCombos + combo
+        }
+        private var bufferCombos: List<Combo> by Delegates.observable(emptyList()) { _, _, newValue ->
+                suggestionJob?.cancel()
+                candidateOffset.value = 0
+                val sessionState: Long = candidateState.value + 1L
+                when (newValue.firstOrNull()) {
+                        null -> {
+                                currentInputConnection.setComposingText(PresetString.EMPTY, 1)
+                                currentInputConnection.finishComposingText()
+                                if (isBuffering.value) {
+                                        if (isInputMemoryOn.value && selectedLexicons.isNotEmpty()) {
+                                                Lexicon.concatenate(selectedLexicons)?.let { memoryHelper.handle(it) }
+                                        }
+                                        selectedLexicons.clear()
+                                        isBuffering.value = false
+                                        clearSidebarEntries()
+                                }
+                                when (keyboardForm.value) {
+                                        KeyboardForm.CandidateBoard,
+                                        KeyboardForm.DedicatedStroke -> transformTo(KeyboardForm.Primary)
+                                        else -> {}
+                                }
+                                updateSpaceKeyForm()
+                                updateReturnKeyForm()
+                                candidates.value = emptyList()
+                                candidateState.value += 1L
+                        }
+                        Combo.Special -> suggestionJob = CoroutineScope(Dispatchers.Default).launch {
+                                if (newValue.size < 2) {
+                                        withContext(Dispatchers.Main) {
+                                                currentInputConnection.setComposingText(VirtualInputKey.letterR.text, 1)
+                                                candidates.value = emptyList()
+                                                updateInputSessionStates()
+                                        }
+                                } else {
+                                        val keys = newValue.drop(1)
+                                        val segmentation = PinyinNineKeySegmenter.segment(keys)
+                                        val queriedDeferred = async { PinyinResearcher.nineKeyReverseLookup(keys, segmentation) }
+                                        val queried = queriedDeferred.await()
+                                        val suggestions = Converter.transformed(lexicons = queried, commentForm = RomanizationForm.Full, charset = characterStandard.value, sessionState = sessionState)
+                                        val tailMark: String = run {
+                                                val firstCandidate = suggestions.firstOrNull()
+                                                if (firstCandidate?.lexicon?.inputCount == keys.size) {
+                                                        firstCandidate.lexicon.mark
+                                                } else {
+                                                        keys.joinToString(separator = PresetString.EMPTY) { it.letters.first() }
+                                                }
+                                        }
+                                        val mark: String = VirtualInputKey.letterR.text + PresetString.SPACE + tailMark
+                                        withContext(Dispatchers.Main) {
+                                                currentInputConnection.setComposingText(mark, 1)
+                                                candidates.value = suggestions
+                                                updateInputSessionStates()
+                                        }
+                                }
+                        }
+                        else -> suggestionJob = CoroutineScope(Dispatchers.Default).launch {
+                                val segmentation = NineKeySegmenter.segment(newValue)
+                                val memoryDeferred = async { if (isInputMemoryOn.value) memoryHelper.nineKeySearch(combos = newValue, segmentation = segmentation) else emptyList() }
+                                val textMarksDeferred = async { if (isEnglishSuggestionsOn.value) Elephant.queryPlainTexts(newValue) else emptyList() }
+                                val symbolsDeferred = async { if (isEmojiSuggestionsOn.value) Elephant.nineKeySearchSymbols(combos = newValue, segmentation = segmentation) else emptyList() }
+                                val queriedDeferred = async { NineKeyResearcher.suggest(combos = newValue, segmentation = segmentation) }
+                                val memory = memoryDeferred.await()
+                                val textMarks = textMarksDeferred.await()
+                                val symbols = symbolsDeferred.await()
+                                val queried = queriedDeferred.await()
+                                val suggestions = Converter.dispatch(
+                                        memory = memory,
+                                        defined = emptyList(),
+                                        texts = textMarks,
+                                        symbols = symbols,
+                                        queried = queried,
+                                        commentForm = RomanizationForm.Full,
+                                        charset = characterStandard.value,
+                                        sessionState = sessionState
+                                )
+                                val mark: String = run {
+                                        val firstCandidate = suggestions.firstOrNull()
+                                        if (firstCandidate?.lexicon?.inputCount == newValue.size) {
+                                                firstCandidate.lexicon.mark
+                                        } else {
+                                                newValue.joinToString(separator = PresetString.EMPTY) { it.letters.first() }
+                                        }
+                                }
+                                withContext(Dispatchers.Main) {
+                                        currentInputConnection.setComposingText(mark, 1)
+                                        nineKeyCachedCandidates = suggestions
+                                        updateSidebarEntries(shouldRefresh = true)
+                                        updateInputSessionStates()
+                                }
+                        }
+                }
+        }
+
+        val sidebarEntries: MutableStateFlow<MutableList<SidebarEntry>> by lazy { MutableStateFlow(mutableListOf()) }
+        private var selectedSidebarEntries: List<SidebarEntry> = emptyList()
+        private var nineKeyCachedCandidates: List<Candidate> = emptyList()
+        fun handleSidebarTap(index: Int, entry: SidebarEntry) {
+                val shouldClearSelected: Boolean = entry.isSelected && (index < selectedSidebarEntries.lastIndex)
+                if (shouldClearSelected) {
+                        selectedSidebarEntries = emptyList()
+                } else {
+                        sidebarEntries.value.removeAt(index)
+                        val newEntry = SidebarEntry(text = entry.text, isSelected = entry.isSelected.negative)
+                        sidebarEntries.value.add(index = index, element = newEntry)
+                        sidebarEntries.value.sortByDescending { it.isSelected }
+                        selectedSidebarEntries = sidebarEntries.value.filter { it.isSelected }
+                }
+                updateSidebarEntries()
+                candidateState.value += 1L
+        }
+        private fun updateSidebarEntries(shouldRefresh: Boolean = false) {
+                if (shouldRefresh || selectedSidebarEntries.isEmpty()) {
+                        candidates.value = nineKeyCachedCandidates
+                        sidebarEntries.value = candidates.value.mapNotNull { if (it.isNotCantonese) null else it.lexicon.romanization.split(PresetString.SPACE).firstOrNull()?.dropLast(1) }
+                                .distinct()
+                                .map { SidebarEntry(it) }
+                                .toMutableList()
+                        selectedSidebarEntries = emptyList()
+                } else {
+                        val selected = selectedSidebarEntries.map { it.text }
+                        val selectedCount = selectedSidebarEntries.size
+                        candidates.value = nineKeyCachedCandidates.filter { item ->
+                                val syllables = item.lexicon.romanization.filterNot { it.isCantoneseToneDigit }.split(PresetString.SPACE)
+                                return@filter if (syllables.size < selectedCount) selected.take(syllables.size) == syllables else syllables.take(selectedCount) == selected
+                        }
+                        val selectedLength = selected.fold(0) { acc, text -> acc + text.length }
+                        if (selectedLength >= bufferCombos.size) {
+                                sidebarEntries.value = selectedSidebarEntries.toMutableList()
+                        } else {
+                                val leadingLength = selectedLength + selectedCount
+                                val newEntries = candidates.value.mapNotNull { candidate -> candidate.lexicon.romanization.filterNot { it.isCantoneseToneDigit }.drop(leadingLength).split(PresetString.SPACE).firstOrNull() }
+                                        .filterNot { it.isBlank() }
+                                        .distinct()
+                                        .map { SidebarEntry(it) }
+                                sidebarEntries.value = (selectedSidebarEntries + newEntries).toMutableList()
+                        }
+                }
+        }
+        private fun clearSidebarEntries() {
+                sidebarEntries.value = mutableListOf()
+                selectedSidebarEntries = emptyList()
+        }
+
+        fun selectCandidate(candidate: Candidate? = null, index: Int = 0) {
+                val item: Candidate = candidate ?: candidates.value.getOrNull(index) ?: return
+                currentInputConnection.commitText(item.text, 1)
+                if (item.isCantonese) {
+                        selectedLexicons.add(item.lexicon)
+                } else {
+                        selectedLexicons.clear()
+                }
+                when (keyboardLayout.value) {
+                        KeyboardLayout.Qwerty, KeyboardLayout.TripleStroke -> if (bufferEvents.first().key.isReverseLookupTrigger) {
+                                var tail = bufferEvents.drop(item.lexicon.inputCount + 1)
+                                while (tail.firstOrNull()?.key?.isApostrophe ?: false) {
+                                        tail = tail.drop(1)
+                                }
+                                val tailLength = tail.size
+                                if (tailLength < 1) {
+                                        clearBuffer()
+                                } else {
+                                        inputLengthSequence = inputLengthSequence.take(1) + inputLengthSequence.takeLast(tailLength)
+                                        bufferEvents = bufferEvents.take(1) + bufferEvents.takeLast(tailLength)
+                                }
+                        } else {
+                                val inputLength: Int = item.lexicon.inputCount
+                                var tail = bufferEvents.drop(inputLength)
+                                while (tail.firstOrNull()?.key?.isApostrophe ?: false) {
+                                        tail = tail.drop(1)
+                                }
+                                val tailLength = tail.size
+                                if (tailLength < 1) {
+                                        clearBuffer()
+                                } else {
+                                        inputLengthSequence = inputLengthSequence.takeLast(tailLength)
+                                        bufferEvents = bufferEvents.takeLast(tailLength)
+                                }
+                        }
+                        KeyboardLayout.NineKey -> if (bufferCombos.first().isSpecial) {
+                                val tailLength: Int = (bufferCombos.size - 1) - item.lexicon.inputCount
+                                bufferCombos = if (tailLength < 1) emptyList() else (bufferCombos.take(1) + bufferCombos.takeLast(tailLength))
+                        } else {
+                                val tailLength: Int = bufferCombos.size - item.lexicon.inputCount
+                                bufferCombos = if (tailLength < 1) emptyList() else bufferCombos.takeLast(tailLength)
+                        }
+                }
+        }
+        fun backspace() {
+                if (isBuffering.value) {
+                        when (keyboardLayout.value) {
+                                KeyboardLayout.Qwerty -> {
+                                        inputLengthSequence = inputLengthSequence.dropLast(1)
+                                        bufferEvents = bufferEvents.dropLast(1)
+                                }
+                                KeyboardLayout.TripleStroke -> {
+                                        val lastInputLength: Int = inputLengthSequence.lastOrNull() ?: return
+                                        inputLengthSequence = inputLengthSequence.dropLast(1)
+                                        bufferEvents = bufferEvents.dropLast(lastInputLength)
+                                }
+                                KeyboardLayout.NineKey -> {
+                                        bufferCombos = bufferCombos.dropLast(1)
+                                }
+                        }
+                } else {
+                        val hasSelectedText: Boolean = currentInputConnection.getSelectedText(0).isNullOrEmpty().negative
+                        if (hasSelectedText) {
+                                currentInputConnection.commitText(PresetString.EMPTY, 1)
+                        } else {
+                                sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+                        }
+                }
+        }
+        fun forwardDelete() {
+                val hasSelectedText: Boolean = currentInputConnection.getSelectedText(0).isNullOrEmpty().negative
+                if (hasSelectedText) {
+                        currentInputConnection.commitText(PresetString.EMPTY, 1)
+                } else {
+                        sendDownUpKeyEvents(KeyEvent.KEYCODE_FORWARD_DEL)
+                }
+        }
+        fun performReturn() {
+                if (isBuffering.value) {
+                        if (keyboardForm.value.isDedicatedStroke && candidates.value.isNotEmpty()) {
+                                candidates.value.firstOrNull()?.let { selectCandidate(it) }
+                        } else {
+                                val text = joinedBufferTexts()
+                                currentInputConnection.commitText(text, 1)
+                                clearBuffer()
+                        }
+                        return
+                }
+                val imeOptions = currentInputEditorInfo.imeOptions
+                val shouldSendEnterCode: Boolean = (imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION) == EditorInfo.IME_FLAG_NO_ENTER_ACTION
+                if (shouldSendEnterCode){
+                        sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER)
+                        return
+                }
+                val hasActionLabel: Boolean = currentInputEditorInfo.actionLabel.isNullOrEmpty().negative
+                val actionId = currentInputEditorInfo.actionId
+                val hasSpecifiedActionId: Boolean = when (actionId) {
+                        EditorInfo.IME_ACTION_UNSPECIFIED,
+                        EditorInfo.IME_ACTION_NONE -> false
+                        else -> true
+                }
+                val shouldPerformSpecifiedAction = hasActionLabel && hasSpecifiedActionId
+                if (shouldPerformSpecifiedAction) {
+                        currentInputConnection.performEditorAction(actionId)
+                        return
+                }
+                val action = imeOptions and EditorInfo.IME_MASK_ACTION
+                val isReasonableAction: Boolean = when (action) {
+                        EditorInfo.IME_ACTION_UNSPECIFIED,
+                        EditorInfo.IME_ACTION_NONE -> false
+                        else -> true
+                }
+                if (isReasonableAction) {
+                        currentInputConnection.performEditorAction(action)
+                        return
+                }
+                sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER)
+        }
+        fun space() {
+                if (isBuffering.value) {
+                        if (candidates.value.isNotEmpty()) {
+                                candidates.value.firstOrNull()?.let { selectCandidate(it) }
+                        } else {
+                                val text = joinedBufferTexts()
+                                currentInputConnection.commitText(text, 1)
+                                clearBuffer()
+                        }
+                } else {
+                        currentInputConnection.commitText(PresetString.SPACE, 1)
+                }
+        }
+        fun dismissKeyboard() {
+                requestHideSelf(0)
+        }
+
+        // New: Physical keyboard support - central handler
+        override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+                // If we handled the event, consume it; otherwise let super handle (so system/app shortcuts work)
+                return if (handlePhysicalKeyEvent(event)) true else super.onKeyDown(keyCode, event)
+        }
+
+        override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+                // Handle Shift key release for input mode toggle
+                if (keyCode == KeyEvent.KEYCODE_SHIFT_LEFT || keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
+                        // Only toggle input mode if no other key was pressed during Shift
+                        // (i.e., it was a standalone Shift press, not Shift+letter for capitalization)
+                        if (!keyPressedDuringShift) {
+                                toggleInputMethodMode()
+                        }
+                        // Reset the flag for next Shift press
+                        keyPressedDuringShift = false
+                        return true
+                }
+                return super.onKeyUp(keyCode, event)
+        }
+
+        /**
+         * Handle a physical KeyEvent. Returns true when the IME consumed the event.
+         * Policy: do not intercept Ctrl/Meta combinations; leave them to the host app.
+         */
+        private fun handlePhysicalKeyEvent(event: KeyEvent): Boolean {
+                // Pass through when control/meta keys are pressed (shortcuts)
+                if (event.isCtrlPressed || event.isMetaPressed) return false
+
+                // Track Shift key down (but don't toggle mode yet - wait for key up)
+                if (event.keyCode == KeyEvent.KEYCODE_SHIFT_LEFT || event.keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
+                        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                                // Just mark that Shift is down, don't toggle yet
+                                return true
+                        }
+                        return false // Let system handle
+                }
+
+                // Handle Tab key to cycle through candidate groups (for number selection 0-9)
+                if (event.keyCode == KeyEvent.KEYCODE_TAB) {
+                        if (event.isShiftPressed) keyPressedDuringShift = true
+
+                        val candidateCount = candidates.value.size
+                        if (candidateCount > 0) {
+                                if (event.isShiftPressed) {
+                                        // Shift+Tab: go back 10 candidates
+                                        val currentOffset = candidateOffset.value
+                                        if (currentOffset > 0) {
+                                                val newOffset = maxOf(0, currentOffset - 10)
+                                                candidateOffset.value = newOffset
+                                                audioFeedback(SoundEffect.Click)
+                                                return true
+                                        }
+                                        // At index 0, do nothing
+                                        return true
+                                } else {
+                                        // Tab: move to next group of 10
+                                        val newOffset = candidateOffset.value + 10
+                                        candidateOffset.value = if (newOffset >= candidateCount) 0 else newOffset
+                                        audioFeedback(SoundEffect.Click)
+                                        return true
+                                }
+                        }
+                        return false
+                }
+
+                // Handle number keys 0-9 to select candidates (0 for 10th candidate)
+                val digitOffset: Int? = when (event.keyCode) {
+                        KeyEvent.KEYCODE_1 -> 0
+                        KeyEvent.KEYCODE_2 -> 1
+                        KeyEvent.KEYCODE_3 -> 2
+                        KeyEvent.KEYCODE_4 -> 3
+                        KeyEvent.KEYCODE_5 -> 4
+                        KeyEvent.KEYCODE_6 -> 5
+                        KeyEvent.KEYCODE_7 -> 6
+                        KeyEvent.KEYCODE_8 -> 7
+                        KeyEvent.KEYCODE_9 -> 8
+                        KeyEvent.KEYCODE_0 -> 9
+                        else -> null
+                }
+                if (digitOffset != null) {
+                        if (event.isShiftPressed) keyPressedDuringShift = true
+                        val index = candidateOffset.value + digitOffset
+                        if (index < candidates.value.size) {
+                                selectCandidate(index = index)
+                                return true
+                        }
+                }
+
+                // Handle special non-printable keys first
+                when (event.keyCode) {
+                        KeyEvent.KEYCODE_DEL -> {
+                                if (event.isShiftPressed) keyPressedDuringShift = true
+                                backspace()
+                                return true
+                        }
+                        KeyEvent.KEYCODE_FORWARD_DEL -> {
+                                if (event.isShiftPressed) keyPressedDuringShift = true
+                                forwardDelete()
+                                return true
+                        }
+                        KeyEvent.KEYCODE_ENTER -> {
+                                if (event.isShiftPressed) keyPressedDuringShift = true
+                                performReturn()
+                                return true
+                        }
+                        KeyEvent.KEYCODE_SPACE -> {
+                                if (event.isShiftPressed) keyPressedDuringShift = true
+                                space()
+                                return true
+                        }
+                        KeyEvent.KEYCODE_DPAD_LEFT -> {
+                                if (event.isShiftPressed) keyPressedDuringShift = true
+                                moveBackward()
+                                return true
+                        }
+                        KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                if (event.isShiftPressed) keyPressedDuringShift = true
+                                moveForward()
+                                return true
+                        }
+                        KeyEvent.KEYCODE_DPAD_UP -> {
+                                if (event.isShiftPressed) keyPressedDuringShift = true
+                                moveUpward()
+                                return true
+                        }
+                        KeyEvent.KEYCODE_DPAD_DOWN -> {
+                                if (event.isShiftPressed) keyPressedDuringShift = true
+                                moveDownward()
+                                return true
+                        }
+                        KeyEvent.KEYCODE_MOVE_HOME -> {
+                                if (event.isShiftPressed) keyPressedDuringShift = true
+                                jump2head()
+                                return true
+                        }
+                        KeyEvent.KEYCODE_MOVE_END -> {
+                                if (event.isShiftPressed) keyPressedDuringShift = true
+                                jump2tail()
+                                return true
+                        }
+                }
+
+                // Use KeyCharacterMap to get the actual character from the physical keyboard
+                // This respects the keyboard layout and modifier keys (Shift, Alt, etc.)
+                val unicodeChar = event.unicodeChar
+                if (unicodeChar != 0 && !Character.isISOControl(unicodeChar)) {
+                        // Mark that a key was pressed while Shift is down
+                        if (event.isShiftPressed) {
+                                keyPressedDuringShift = true
+                        }
+
+                        // Show physical keyboard candidates view
+                        if (!isPhysicalKeyboardActive.value) {
+                                showPhysicalKeyboardCandidates()
+                        }
+
+                        // In ABC mode, commit the character directly
+                        // In Cantonese mode, for letters a-z try to use the IME handler
+                        when (inputMethodMode.value) {
+                                InputMethodMode.ABC -> {
+                                        val text = unicodeChar.toChar().toString()
+                                        currentInputConnection.commitText(text, 1)
+                                }
+                                InputMethodMode.Cantonese -> {
+                                        val char = unicodeChar.toChar()
+                                        val mapped = if (char.isBasicLatinLetter) VirtualInputKey.matchVirtualKey(eventCode = event.keyCode) else null
+                                        if (mapped != null) {
+                                                // Feed into existing IME handler for Cantonese input
+                                                handle(mapped)
+                                        } else {
+                                                // For symbols and other characters, commit directly
+                                                currentInputConnection.commitText(char.toString(), 1)
+                                        }
+                                }
+                        }
+                        audioFeedback(SoundEffect.Click)
+                        return true
+                }
+
+                val mapped: VirtualInputKey? = VirtualInputKey.matchVirtualKey(eventCode = event.keyCode)
+                if (mapped != null) {
+                        // Mark that a key was pressed while Shift is down (for Shift toggle detection)
+                        if (event.isShiftPressed) {
+                                keyPressedDuringShift = true
+                        }
+
+                        // Show physical keyboard candidates view for physical typing
+                        if (!isPhysicalKeyboardActive.value) {
+                                showPhysicalKeyboardCandidates()
+                        }
+
+                        // Respect Shift/Caps Lock for ABC mode; Cantonese mode typically uses lowercased letters
+                        // Check both Shift key state and Caps Lock state
+                        val useUpper = (event.isShiftPressed || event.isCapsLockOn || keyboardCase.value.isUppercased)
+                        val textToCommit = if (useUpper && inputMethodMode.value.isABC) mapped.text.uppercase() else mapped.text
+
+                        when (inputMethodMode.value) {
+                                InputMethodMode.ABC -> {
+                                        currentInputConnection.commitText(textToCommit, 1)
+                                }
+                                InputMethodMode.Cantonese -> {
+                                        // Feed into existing IME handler to maintain buffering/candidate logic
+                                        handle(mapped)
+                                }
+                        }
+
+                        // Emit preview and feedback
+                        emitPhysicalKeyPreview(mapped)
+                        return true
+                }
+
+                // Unmapped: let the system handle it
+                return false
+        }
+
+        //region EditingPanel
+        val isClipboardEmpty: MutableStateFlow<Boolean> by lazy { MutableStateFlow(true) }
+        private fun isCurrentClipboardEmpty(): Boolean {
+                val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                if (clipboard.hasPrimaryClip().negative) return true
+                val hasText: Boolean = clipboard.primaryClipDescription?.hasMimeType(MIMETYPE_TEXT_PLAIN) ?: return true
+                return hasText.negative
+        }
+        fun paste() {
+                val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                if (clipboard.hasPrimaryClip()) {
+                        clipboard.primaryClip?.getItemAt(0)?.text?.let {
+                                if (it.isNotEmpty()) {
+                                        currentInputConnection.commitText(it, 1)
+                                }
+                        }
+                }
+        }
+        fun clearClipboard() {
+                (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).clearPrimaryClip()
+                isClipboardEmpty.value = true
+        }
+        fun copyAllText() {
+                val request = ExtractedTextRequest()
+                val extractedText = currentInputConnection.getExtractedText(request, 0)
+                extractedText?.text?.let {
+                        if (it.isEmpty()) return
+                        val clip = ClipData.newPlainText(it, it)
+                        (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
+                        isClipboardEmpty.value = false
+                }
+        }
+        fun cutAllText() {
+                currentInputConnection.performContextMenuAction(android.R.id.selectAll)
+                val selectedText = currentInputConnection.getSelectedText(0)
+                selectedText?.let {
+                        if (it.isEmpty()) return
+                        val clip = ClipData.newPlainText(it, it)
+                        (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
+                        isClipboardEmpty.value = false
+                }
+                currentInputConnection.commitText(PresetString.EMPTY, 1)
+        }
+        fun clearAllText() {
+                val textLengthBeforeCursor = currentInputConnection.getTextBeforeCursor(1000, 0)?.length
+                if (textLengthBeforeCursor != null) {
+                        currentInputConnection.deleteSurroundingText(textLengthBeforeCursor, 0)
+                } else {
+                        currentInputConnection.performContextMenuAction(android.R.id.selectAll)
+                        currentInputConnection.commitText(PresetString.EMPTY, 1)
+                }
+        }
+        fun convertAllText() {
+                currentInputConnection.performContextMenuAction(android.R.id.selectAll)
+                val selectedText = currentInputConnection.getSelectedText(0)
+                selectedText?.let {
+                        if (it.isEmpty()) return
+                        val origin: String = it.toString()
+                        val mutilated: String = Simplifier.convert(text = origin)
+                        val converted: String = if (mutilated == origin) origin.convertedS2T() else mutilated
+                        currentInputConnection.commitText(converted, 1)
+                }
+        }
+        fun moveBackward() {
+                sendDownUpKeyEvents(KeyEvent.KEYCODE_DPAD_LEFT)
+        }
+        fun moveForward() {
+                sendDownUpKeyEvents(KeyEvent.KEYCODE_DPAD_RIGHT)
+        }
+        fun moveUpward() {
+                sendDownUpKeyEvents(KeyEvent.KEYCODE_DPAD_UP)
+        }
+        fun moveDownward() {
+                sendDownUpKeyEvents(KeyEvent.KEYCODE_DPAD_DOWN)
+        }
+        fun jump2head() {
+                sendDownUpKeyEvents(KeyEvent.KEYCODE_MOVE_HOME)
+                // currentInputConnection.setSelection(0, 0)
+        }
+        fun jump2tail() {
+                sendDownUpKeyEvents(KeyEvent.KEYCODE_MOVE_END)
+                /*
+                val request = ExtractedTextRequest()
+                val extractedText = currentInputConnection.getExtractedText(request, 0)
+                extractedText?.text?.length?.let {
+                        currentInputConnection.setSelection(it, it)
+                }
+                */
+        }
+        //endregion
+
+        //region Keyboard Feedback
+        private val audioManager by lazy { getSystemService(AUDIO_SERVICE) as AudioManager }
+        fun audioFeedback(effect: SoundEffect) {
+                if (isAudioFeedbackOn.value) {
+                        audioManager.playSoundEffect(effect.soundId, -1f)
+                }
+        }
+        //endregion
+}

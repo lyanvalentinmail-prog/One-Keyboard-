@@ -1,0 +1,7 @@
+1. Mejor rendimiento al escribir gracias al uso de varios hilos.
+2. Mejor búsqueda inversa del Jyutping con Cangjie, Quick (Sucheng), trazos, pinyin mandarín y componentes de los caracteres.
+3. Mejor conversión entre chino tradicional y simplificado en el panel «Editar».
+4. Mejor gesto de la tecla Suprimir: desliza de derecha a izquierda o de abajo hacia arriba para borrar las sílabas en edición.
+5. Mejor representación tipográfica de los candidatos y de las anotaciones en Jyutping en algunos dispositivos.
+6. Mejor representación tipográfica en varios componentes del teclado en algunos dispositivos.
+7. Mejor experiencia de texto a voz (TTS) en algunos dispositivos.

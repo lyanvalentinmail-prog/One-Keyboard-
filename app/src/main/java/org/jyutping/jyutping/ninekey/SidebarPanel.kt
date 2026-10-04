@@ -1,0 +1,137 @@
+package org.jyutping.jyutping.ninekey
+
+import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import org.jyutping.jyutping.JyutpingInputMethodService
+import org.jyutping.jyutping.feedback.SoundEffect
+import org.jyutping.jyutping.presets.PresetConstant
+import org.jyutping.jyutping.utilities.ToolBox
+
+@Composable
+fun SidebarPanel(unitHeight: Dp, modifier: Modifier) {
+        val view = LocalView.current
+        val context = LocalContext.current as JyutpingInputMethodService
+        val sidebarEntries by context.sidebarEntries.collectAsState()
+        val candidateState by context.candidateState.collectAsState()
+        val keyboardForm by context.keyboardForm.collectAsState()
+        val isBuffering by context.isBuffering.collectAsState()
+        val isDarkMode by context.isDarkMode.collectAsState()
+        val isHighContrastPreferred by context.isHighContrastPreferred.collectAsState()
+        var isPressing by remember { mutableStateOf(false) }
+        var pressingIndex by remember { mutableIntStateOf(-1) }
+        var pressingState by remember { mutableIntStateOf(0) }
+        val state = rememberLazyListState()
+        LaunchedEffect(pressingState) {
+                state.animateScrollToItem(index = 0, scrollOffset = 0)
+        }
+        val entries = if (keyboardForm.isDedicatedNumbers) SidebarEntry.symbols else if (isBuffering) sidebarEntries else SidebarEntry.punctuation
+        LazyColumn(
+                modifier = modifier
+                        .padding(3.dp)
+                        .border(
+                                width = 1.dp,
+                                color = ToolBox.keyBorderColor(isDarkMode, isHighContrastPreferred),
+                                shape = RoundedCornerShape(PresetConstant.largeKeyCornerRadius.dp)
+                        )
+                        .background(
+                                color = ToolBox.actionKeyBackColor(isDarkMode, isHighContrastPreferred, false),
+                                shape = RoundedCornerShape(PresetConstant.largeKeyCornerRadius.dp)
+                        )
+                        .clip(RoundedCornerShape(PresetConstant.largeKeyCornerRadius.dp))
+                        .fillMaxSize(),
+                state = state
+        ) {
+                itemsIndexed(
+                        items = entries,
+                        key = { index, _ -> (candidateState * 1000L + index) }
+                ) { index, entry ->
+                        Box(
+                                modifier = Modifier
+                                        .pointerInput(Unit) {
+                                                detectTapGestures(
+                                                        onPress = {
+                                                                isPressing = true
+                                                                pressingIndex = index
+                                                                tryAwaitRelease()
+                                                                isPressing = false
+                                                                pressingIndex = -1
+                                                        },
+                                                        onTap = {
+                                                                context.audioFeedback(SoundEffect.Input)
+                                                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                                                if (isBuffering) {
+                                                                        context.handleSidebarTap(index, entry)
+                                                                } else {
+                                                                        context.input(entry.text)
+                                                                }
+                                                                pressingState += 1
+                                                        }
+                                                )
+                                        }
+                                        .background(
+                                                color = if (entry.isSelected) Color.Gray.copy(alpha = 0.5f) else Color.Transparent
+                                        )
+                                        .height(if (entry.isSelected) (unitHeight / 2) else unitHeight)
+                                        .fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                        ) {
+                                Text(
+                                        text = if (entry.isSymbol) centerFormed(entry.text) else entry.text,
+                                        color = if (isDarkMode) Color.White else Color.Black,
+                                        autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = if (entry.isSymbol) 20.sp else 16.sp),
+                                        fontSize = if (entry.isSymbol) 20.sp else 16.sp,
+                                        overflow = TextOverflow.Ellipsis,
+                                        maxLines = 1
+                                )
+                        }
+                        HorizontalDivider(
+                                modifier.alpha(0.35f),
+                                thickness = 1.dp,
+                                color = Color.Gray
+                        )
+                }
+        }
+}
+
+/** Apply Variation Selector to the punctuation mark */
+private fun centerFormed(text: String): String {
+        if (text.length > 1) return text
+        return buildString {
+                appendCodePoint(text.codePointAt(0))
+                appendCodePoint(65025) // U+FE01
+        }
+}

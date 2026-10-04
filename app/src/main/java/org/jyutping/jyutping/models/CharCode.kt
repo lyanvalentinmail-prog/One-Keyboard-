@@ -1,0 +1,111 @@
+package org.jyutping.jyutping.models
+
+/**
+ * Combines the elements as base-100 digits using wrapping arithmetic.
+ *
+ * For example, `[20, 21, 22]` produces `202122L`.
+ * An empty iterable produces `0L`.
+ *
+ * If the result exceeds the range of [Long], the arithmetic wraps around according to Kotlin's two's-complement integer overflow semantics.
+ */
+fun Iterable<Int>.radix100Overflowed(): Long = fold(0L) { acc, i -> acc * 100L + i }
+
+/**
+ * Combines the elements as decimal digits using wrapping arithmetic.
+ *
+ * For example, `[2, 3, 4]` produces `234L`.
+ * An empty iterable produces `0L`.
+ *
+ * If the result exceeds the range of [Long], the arithmetic wraps around according to Kotlin's two's-complement integer overflow semantics.
+ */
+fun Iterable<Int>.decimalOverflowed(): Long = fold(0L) { acc, i -> acc * 10L + i }
+
+/** Encodes lowercase Basic Latin letters as two-digit serial codes. Non-letter characters are skipped. */
+val String.serialCode: Long
+        get() = this.mapNotNull { it.serialCharCode }.radix100Overflowed()
+
+/** Encodes lowercase Basic Latin letters as telephone keypad digits. Non-letter characters are skipped. */
+val String.keypadCode: Long
+        get() = this.mapNotNull { it.keypadCharCode }.decimalOverflowed()
+
+/** Unique identifier code of the character. Letters [a-z] and digits [0-9]. */
+val Char.interCode: Int?
+        get() = CharCode.letterCodeMap[this] ?: CharCode.numberCodeMap[this]
+
+private val Char.serialCharCode: Int?
+        get() = CharCode.letterCodeMap[this]
+
+private val Char.keypadCharCode: Int?
+        get() = CharCode.keypadCodeMap[this]
+
+private object CharCode {
+        val letterCodeMap: Map<Char, Int> = mapOf(
+                'a' to 20,
+                'b' to 21,
+                'c' to 22,
+                'd' to 23,
+                'e' to 24,
+                'f' to 25,
+                'g' to 26,
+                'h' to 27,
+                'i' to 28,
+                'j' to 29,
+                'k' to 30,
+                'l' to 31,
+                'm' to 32,
+                'n' to 33,
+                'o' to 34,
+                'p' to 35,
+                'q' to 36,
+                'r' to 37,
+                's' to 38,
+                't' to 39,
+                'u' to 40,
+                'v' to 41,
+                'w' to 42,
+                'x' to 43,
+                'y' to 44,
+                'z' to 45
+        )
+        val numberCodeMap: Map<Char, Int> = mapOf(
+                '0' to 10,
+                '1' to 11,
+                '2' to 12,
+                '3' to 13,
+                '4' to 14,
+                '5' to 15,
+                '6' to 16,
+                '7' to 17,
+                '8' to 18,
+                '9' to 19
+        )
+
+        val keypadCodeMap: Map<Char, Int> = mapOf(
+                'a' to 2,
+                'b' to 2,
+                'c' to 2,
+                'd' to 3,
+                'e' to 3,
+                'f' to 3,
+                'g' to 4,
+                'h' to 4,
+                'i' to 4,
+                'j' to 5,
+                'k' to 5,
+                'l' to 5,
+                'm' to 6,
+                'n' to 6,
+                'o' to 6,
+                'p' to 7,
+                'q' to 7,
+                'r' to 7,
+                's' to 7,
+                't' to 8,
+                'u' to 8,
+                'v' to 8,
+                'w' to 9,
+                'x' to 9,
+                'y' to 9,
+                'z' to 9,
+        )
+}

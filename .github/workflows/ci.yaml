@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  release:
+    types: [published]
+
+jobs:
+  prepare:
+    name: Prepare Database (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-26.04
+            gradlew: ./gradlew
+          - runner: ubuntu-26.04-arm
+            gradlew: ./gradlew
+          - runner: windows-11-vs2026-arm
+            gradlew: .\gradlew.bat
+    steps:
+      - uses: actions/checkout@v7
+      - name: setup JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: gradle
+      - name: Run gradlew
+        run: ${{ matrix.gradlew }} run --warning-mode all
+        working-directory: ./preparing
+  build:
+    name: Build App (${{ matrix.runner }})
+    needs: [prepare]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-26.04
+            gradlew: ./gradlew
+    steps:
+      - uses: actions/checkout@v7
+      - name: setup JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: gradle
+      - name: Build with Gradle
+        run: ${{ matrix.gradlew }} build --warning-mode all

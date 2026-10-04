@@ -1,0 +1,4 @@
+1. Se ha mejorado el diseño de la barra de herramientas superior del teclado.
+2. Se ha mejorado el diseño de la pantalla de ajustes del teclado.
+3. Se ha añadido un ajuste para el modo de escritura predeterminado, con las opciones Jyutping, ABC y Reciente.
+4. Se ha mejorado el motor del método de entrada, para escribir con más fluidez.

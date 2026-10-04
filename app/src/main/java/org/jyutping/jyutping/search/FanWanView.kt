@@ -1,0 +1,98 @@
+package org.jyutping.jyutping.search
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme.colorScheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import org.jyutping.jyutping.R
+import org.jyutping.jyutping.app.common.SeparatorMark
+import org.jyutping.jyutping.linguistics.OldCantonese
+import org.jyutping.jyutping.presets.PresetString
+import org.jyutping.jyutping.speech.Speaker
+
+@Composable
+fun FanWanView(entries: List<FanWanCuetYiu>) {
+        Column {
+                Text(
+                        text = "《分韻撮要》 佚名 廣州府 清初",
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                        color = colorScheme.onTertiaryContainer,
+                        fontSize = 13.sp
+                )
+                Column(
+                        modifier = Modifier
+                                .fillMaxWidth()
+                                .background(color = colorScheme.background, shape = RoundedCornerShape(16.dp))
+                                .padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                        entries.firstOrNull()?.word?.let {
+                                WordTextLabel(word = it, isSpeakable = false)
+                        }
+                        entries.forEach {
+                                Column(
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                        HorizontalDivider(modifier = Modifier.alpha(0.66f))
+                                        FanWanPronunciationView(it)
+                                }
+                        }
+                }
+        }
+}
+
+@Composable
+private fun FanWanPronunciationView(entry: FanWanCuetYiu) {
+        val ipaText = OldCantonese.IPAText(entry.romanization)
+        val homophoneText = if (entry.homophones.isEmpty()) null else entry.homophones.joinToString(separator = PresetString.SPACE)
+        Column {
+                Row {
+                        Text(text = stringResource(R.string.search_label_pronunciation), color = colorScheme.onBackground)
+                        SeparatorMark()
+                        Text(text = entry.pronunciation, color = colorScheme.onBackground)
+                }
+                Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                ) {
+                        Row {
+                                Text(text = stringResource(R.string.search_label_transcription), color = colorScheme.onBackground)
+                                SeparatorMark()
+                                Text(text = entry.romanization, color = colorScheme.onBackground)
+                        }
+                        Text(
+                                text = ipaText,
+                                modifier = Modifier.alpha(0.75f),
+                                color = colorScheme.onBackground
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Speaker(romanization = entry.romanization, cantonese = entry.word)
+                }
+                homophoneText?.let {
+                        Row {
+                                Text(text = stringResource(R.string.search_label_homophones), color = colorScheme.onBackground)
+                                SeparatorMark()
+                                Text(text = it, color = colorScheme.onBackground)
+                        }
+                }
+                Row {
+                        Text(text = stringResource(R.string.search_label_definition), color = colorScheme.onBackground)
+                        SeparatorMark()
+                        Text(text = entry.interpretation, color = colorScheme.onBackground)
+                }
+        }
+}

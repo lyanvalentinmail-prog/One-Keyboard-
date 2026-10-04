@@ -1,0 +1,2 @@
+1. Mejor rendimiento y fluidez del teclado.
+2. Mejor búsqueda inversa del Jyutping mediante la descomposición de caracteres.

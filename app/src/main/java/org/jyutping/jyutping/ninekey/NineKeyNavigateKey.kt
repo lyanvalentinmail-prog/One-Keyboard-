@@ -1,0 +1,85 @@
+package org.jyutping.jyutping.ninekey
+
+import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
+import org.jyutping.jyutping.JyutpingInputMethodService
+import org.jyutping.jyutping.feedback.SoundEffect
+import org.jyutping.jyutping.models.KeyboardForm
+import org.jyutping.jyutping.presets.PresetConstant
+import org.jyutping.jyutping.utilities.ToolBox
+
+@Composable
+fun NineKeyNavigateKey(destination: KeyboardForm, modifier: Modifier) {
+        val view = LocalView.current
+        val context = LocalContext.current as JyutpingInputMethodService
+        val useDedicatedNumberPad by context.useDedicatedNumberPad.collectAsState()
+        val isDarkMode by context.isDarkMode.collectAsState()
+        val isHighContrastPreferred by context.isHighContrastPreferred.collectAsState()
+        var isPressing by remember { mutableStateOf(false) }
+        val keyText: String = when (destination) {
+                KeyboardForm.Primary -> "ABC"
+                KeyboardForm.Numeric -> if (useDedicatedNumberPad) "#@$" else "123"
+                KeyboardForm.Symbolic -> "#+="
+                KeyboardForm.DedicatedNumbers -> "123"
+                else -> "???"
+        }
+        val keyShape = RoundedCornerShape(PresetConstant.largeKeyCornerRadius.dp)
+        val density = LocalDensity.current
+        Box(
+                modifier = modifier
+                        .pointerInput(Unit) {
+                                detectTapGestures(
+                                        onPress = {
+                                                isPressing = true
+                                                context.audioFeedback(SoundEffect.Click)
+                                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                                context.transformTo(destination)
+                                                try {
+                                                        tryAwaitRelease()
+                                                } finally {
+                                                        isPressing = false
+                                                }
+                                        }
+                                )
+                        }
+                        .fillMaxSize()
+                        .padding(if (isPressing) 1.dp else 3.dp)
+                        .border(
+                                width = 1.dp,
+                                color = ToolBox.keyBorderColor(isDarkMode, isHighContrastPreferred),
+                                shape = keyShape
+                        )
+                        .background(
+                                color = ToolBox.actionKeyBackColor(isDarkMode, isHighContrastPreferred, isPressing),
+                                shape = keyShape
+                        ),
+                contentAlignment = Alignment.Center
+        ) {
+                Text(
+                        text = keyText,
+                        color = if (isDarkMode) Color.White else Color.Black,
+                        fontSize = with(density) { 18.dp.toSp() },
+                )
+        }
+}

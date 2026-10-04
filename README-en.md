@@ -1,0 +1,101 @@
+README in [Español(Spanish)](README.md) | [粵語(Cantonese)](README-yue.md) | [普通話(Mandarin)](README-cmn.md)
+
+Jyutping
+======
+
+<a href="https://t.me/jyutping">
+        <img src="images/badge-telegram.png" alt="Telegram" width="150"/>
+</a>
+<a href="https://www.instagram.com/jyutping_app">
+        <img src="images/badge-instagram.png" alt="Instagram" width="150"/>
+</a>
+<a href="https://www.threads.net/@jyutping_app">
+        <img src="images/badge-threads.png" alt="Threads" width="150"/>
+</a>
+<a href="https://x.com/JyutpingApp">
+        <img src="images/badge-twitter.png" alt="X (formerly Twitter)" width="150"/>
+</a>
+<a href="https://jq.qq.com/?k=4PR17m3t">
+        <img src="images/badge-qq.png" alt="QQ" width="150"/>
+</a>
+<br>
+<br>
+
+Cantonese Keyboard for Android adopts the [LSHK Jyutping scheme](https://jyutping.org/jyutping) and supports common habitual spellings.
+
+Feature highlights:
+- Full support for Jyutping input.
+- Abbreviated input with Jyutping initials.
+- Accurate input with Jyutping tones.
+- Traditional / Simplified characters.
+- Reverse Lookup with Cangjie, Quick(Sucheng), Stroke or Mandarin Pinyin.
+- Jyutping hints for candidates.
+- Emoji suggestions.
+- Easy ways to Copy, Cut, Paste and moving cursor backward/forward.
+- Audio and Haptic feedbacks.
+
+See also:
+- [iOS and macOS](https://github.com/yuetyam/jyutping)
+- [Windows](https://github.com/yuetyam/jyutping-windows)
+- [HarmonyOS](https://github.com/yuetyam/jyutping-harmony)
+
+## Screenshots
+<img src="images/screenshot.png" alt="App Screenshot" width="300"/>
+
+## Download
+<a href="https://play.google.com/store/apps/details?id=org.jyutping.jyutping">
+        <img src="images/badge-google-play-download.svg" alt="Google Play badge" width="150"/>
+</a>
+<br>
+<a href="https://play.google.com/store/apps/details?id=org.jyutping.jyutping">
+        <img src="images/qrcode-google-play.png" alt="Google Play QR Code" width="150"/>
+</a>
+<br>
+<br>
+<a href="https://f-droid.org/packages/org.jyutping.jyutping">
+        <img src="images/badge-fdroid-download.svg" alt="F-Droid badge" width="150"/>
+</a>
+<br>
+<a href="https://f-droid.org/packages/org.jyutping.jyutping">
+        <img src="images/qrcode-fdroid.png" alt="F-Droid QR Code" width="150"/>
+</a>
+<br>
+<br>
+Also available on our website: https://jyutping.app/android
+
+## How to build
+Build requirements:
+- Android Studio 2026.1.3+
+
+Clone with `--depth` to reduce code size:
+~~~bash
+git clone --depth 1 https://github.com/yuetyam/jyutping-android.git
+~~~
+Prepare databases:
+~~~bash
+# cd path/to/jyutping-android
+cd ./preparing/
+./gradlew run
+~~~
+
+Then open this project with Android Studio.
+
+## Credits
+- [Rime-Cantonese](https://github.com/rime/rime-cantonese) (Cantonese Lexicon)
+- [OpenCC](https://github.com/BYVoid/OpenCC) (Traditional-Simplified Character Conversion)
+- [JetBrains](https://www.jetbrains.com/) (Licenses for Open Source Development)
+
+## Thank you for your support
+Website: https://jyutping.app/donate
+
+愛發電: https://afdian.com/a/jyutping
+
+Ko-fi: https://ko-fi.com/zheung
+
+Patreon: https://patreon.com/bingzheung
+
+PayPal: https://paypal.me/bingzheung
+
+Bitcoin: `bc1qx5tjmlvq8ydmfzxt5fru7vqq0khjkhf2savheh`
+
+<img src="images/sponsor.jpg" alt="WeChat Sponsor" width="180"/>

@@ -1,0 +1,115 @@
+package org.jyutping.jyutping.keyboard
+
+import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+import org.jyutping.jyutping.JyutpingInputMethodService
+import org.jyutping.jyutping.R
+import org.jyutping.jyutping.feedback.SoundEffect
+import org.jyutping.jyutping.models.KeyboardCase
+import org.jyutping.jyutping.presets.PresetConstant
+import org.jyutping.jyutping.utilities.ToolBox
+import kotlin.time.Duration.Companion.milliseconds
+
+@Composable
+fun ShiftKey(modifier: Modifier) {
+        val view = LocalView.current
+        val context = LocalContext.current as JyutpingInputMethodService
+        val keyboardInterface by context.keyboardInterface.collectAsState()
+        val isDarkMode by context.isDarkMode.collectAsState()
+        val isHighContrastPreferred by context.isHighContrastPreferred.collectAsState()
+        val keyboardCase by context.keyboardCase.collectAsState()
+        val drawableId: Int = when (keyboardCase) {
+                KeyboardCase.Lowercased -> R.drawable.key_shift
+                KeyboardCase.Uppercased -> R.drawable.key_shifting
+                KeyboardCase.CapsLocked -> R.drawable.key_capslock
+        }
+        var isPressing by remember { mutableStateOf(false) }
+        var previousKeyboardCase by remember { mutableStateOf(KeyboardCase.Lowercased) }
+        var isInTheMediumOfDoubleTapping by remember { mutableStateOf(false) }
+        var doubleTappingBuffer by remember { mutableIntStateOf(0) }
+        LaunchedEffect(isInTheMediumOfDoubleTapping) {
+                while (isInTheMediumOfDoubleTapping) {
+                        delay(100L.milliseconds) // 0.1s
+                        if (doubleTappingBuffer >= 3) {
+                                doubleTappingBuffer = 0
+                                isInTheMediumOfDoubleTapping = false
+                        } else {
+                                doubleTappingBuffer += 1
+                        }
+                }
+        }
+        val keyShape = RoundedCornerShape(PresetConstant.keyCornerRadius.dp)
+        Box(
+                modifier = modifier
+                        .pointerInput(Unit) {
+                                detectTapGestures(
+                                        onPress = {
+                                                isPressing = true
+                                                context.audioFeedback(SoundEffect.Click)
+                                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                                tryAwaitRelease()
+                                                isPressing = false
+                                        },
+                                        onTap = {
+                                                val currentKeyboardCase = keyboardCase
+                                                val didKeyboardCaseSwitchBack = (currentKeyboardCase == previousKeyboardCase)
+                                                val shouldPerformDoubleTapping = isInTheMediumOfDoubleTapping && didKeyboardCaseSwitchBack.not()
+                                                doubleTappingBuffer = 0
+                                                previousKeyboardCase = currentKeyboardCase
+                                                if (shouldPerformDoubleTapping) {
+                                                        isInTheMediumOfDoubleTapping = false
+                                                        context.doubleShift()
+                                                } else {
+                                                        isInTheMediumOfDoubleTapping = true
+                                                        context.shift()
+                                                }
+                                        }
+                                )
+                        }
+                        .padding(horizontal = keyboardInterface.keyHorizontalPadding, vertical = keyboardInterface.keyVerticalPadding)
+                        .border(
+                                width = 1.dp,
+                                color = ToolBox.keyBorderColor(isDarkMode, isHighContrastPreferred),
+                                shape = keyShape
+                        )
+                        .background(
+                                color = ToolBox.actionKeyBackColor(isDarkMode, isHighContrastPreferred, isPressing),
+                                shape = keyShape
+                        )
+                        .fillMaxSize(),
+                contentAlignment = Alignment.Center
+        ) {
+                Icon(
+                        imageVector = ImageVector.vectorResource(id = drawableId),
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        tint = if (isDarkMode) Color.White else Color.Black
+                )
+        }
+}

@@ -1,0 +1,120 @@
+package org.jyutping.jyutping
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme.colorScheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import org.jyutping.jyutping.extensions.negative
+import org.jyutping.jyutping.speech.TTSProvider
+import org.jyutping.jyutping.utilities.DatabasePreparer
+
+val LocalTTSProvider = staticCompositionLocalOf<TTSProvider?> { null }
+
+class MainActivity : ComponentActivity() {
+
+        private var ttsProvider by mutableStateOf<TTSProvider?>(null)
+
+        @OptIn(ExperimentalMaterial3Api::class)
+        override fun onCreate(savedInstanceState: Bundle?) {
+                enableEdgeToEdge()
+                super.onCreate(savedInstanceState)
+                lifecycleScope.launch(Dispatchers.IO) {
+                        DatabasePreparer.prepare(applicationContext)
+                }
+                setContent {
+                        val navController = rememberNavController()
+                        val entry by navController.currentBackStackEntryAsState()
+                        val route: String? = entry?.destination?.route
+                        val topTitle: String = stringResource(id = titleOf(route = route))
+                        val canNavigateUp: Boolean = canNavigateUp(route = route)
+                        CompositionLocalProvider(LocalTTSProvider provides ttsProvider) {
+                                AppTheme {
+                                        Scaffold(
+                                                topBar = {
+                                                        TopAppBar(
+                                                                title = { Text(text = topTitle) },
+                                                                navigationIcon = {
+                                                                        if (canNavigateUp) {
+                                                                                IconButton(onClick = { navController.navigateUp() }) {
+                                                                                        Icon(imageVector = Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+                                                                                }
+                                                                        }
+                                                                },
+                                                                colors = TopAppBarDefaults.topAppBarColors(
+                                                                        containerColor = colorScheme.secondaryContainer,
+                                                                        navigationIconContentColor = colorScheme.onSecondaryContainer,
+                                                                        titleContentColor = colorScheme.onSecondaryContainer
+                                                                )
+                                                        )
+                                                },
+                                                bottomBar = { AppBottomBar(navController = navController) },
+                                                containerColor = colorScheme.surfaceContainerHighest
+                                        ) { paddingValues ->
+                                                Box(modifier = Modifier.padding(paddingValues)) {
+                                                        AppContent(navController = navController)
+                                                }
+                                        }
+                                }
+                        }
+                }
+        }
+        override fun onResume() {
+                super.onResume()
+                val isTTSReady: Boolean = ttsProvider?.isReady?.value ?: false
+                if (isTTSReady.negative) {
+                        ttsProvider = TTSProvider(this.applicationContext)
+                        ttsProvider?.initialize()
+                }
+        }
+        override fun onDestroy() {
+                ttsProvider?.shutdown()
+                super.onDestroy()
+        }
+
+        private fun titleOf(route: String?): Int = when (route) {
+                Screen.Home.route -> Screen.Home.title
+                Screen.TextToSpeech.route -> Screen.TextToSpeech.title
+                Screen.Introductions.route -> Screen.Introductions.title
+                Screen.DisplayLanguages.route -> Screen.DisplayLanguages.title
+                Screen.Jyutping.route -> Screen.Jyutping.title
+                Screen.JyutpingInitials.route -> Screen.JyutpingInitials.title
+                Screen.JyutpingFinals.route -> Screen.JyutpingFinals.title
+                Screen.JyutpingTones.route -> Screen.JyutpingTones.title
+                Screen.Cantonese.route -> Screen.Cantonese.title
+                Screen.Expressions.route -> Screen.Expressions.title
+                Screen.Confusion.route -> Screen.Confusion.title
+                Screen.About.route -> Screen.About.title
+                else -> Screen.Home.title
+        }
+        private fun canNavigateUp(route: String?): Boolean = when (route) {
+                Screen.Home.route -> false
+                Screen.Jyutping.route -> false
+                Screen.Cantonese.route -> false
+                Screen.About.route -> false
+                else -> true
+        }
+}

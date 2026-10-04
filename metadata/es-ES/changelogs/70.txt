@@ -1,0 +1,4 @@
+1. Se ha añadido un ajuste para mostrar números y símbolos en las teclas de letras.
+2. Se han mejorado el motor de escritura y la estructura del diccionario, para escribir con más fluidez.
+3. Ligera mejora de la experiencia de escritura en el teclado de triple pulsación.
+4. Ligera mejora del diseño de la tabla de tonos del Jyutping de la aplicación principal.

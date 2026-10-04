@@ -1,0 +1,89 @@
+package org.jyutping.jyutping.app.romanization
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.MaterialTheme.colorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavHostController
+import org.jyutping.jyutping.R
+import org.jyutping.jyutping.Screen
+import org.jyutping.jyutping.app.common.EnhancedHorizontalDivider
+import org.jyutping.jyutping.app.common.NavigationLabel
+import org.jyutping.jyutping.app.common.WebLinkLabel
+
+@Composable
+fun JyutpingScreen(navController: NavHostController) {
+        LazyColumn(
+                contentPadding = PaddingValues(start = 14.dp, top = 8.dp, end = 14.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+                item {
+                        Column(
+                                modifier = Modifier
+                                        .background(color = colorScheme.background, shape = RoundedCornerShape(16.dp))
+                                        .fillMaxWidth()
+                        ) {
+                                NavigationLabel(icon = Icons.AutoMirrored.Rounded.FormatListBulleted, text = stringResource(id = R.string.jyutping_label_initials)) {
+                                        navController.navigate(route = Screen.JyutpingInitials.route)
+                                }
+                                EnhancedHorizontalDivider()
+                                NavigationLabel(icon = Icons.AutoMirrored.Rounded.FormatListBulleted, text = stringResource(id = R.string.jyutping_label_finals)) {
+                                        navController.navigate(route = Screen.JyutpingFinals.route)
+                                }
+                                EnhancedHorizontalDivider()
+                                NavigationLabel(icon = Icons.Outlined.Notifications, text = stringResource(id = R.string.jyutping_label_tones)) {
+                                        navController.navigate(route = Screen.JyutpingTones.route)
+                                }
+                        }
+                }
+                item {
+                        Column(
+                                modifier = Modifier
+                                        .background(color = colorScheme.background, shape = RoundedCornerShape(16.dp))
+                                        .fillMaxWidth()
+                        ) {
+                                WebLinkLabel(icon = Icons.Rounded.Search, text = "粵音資料集叢", uri = "https://jyut.net")
+                                EnhancedHorizontalDivider()
+                                WebLinkLabel(icon = Icons.Rounded.Search, text = "粵典", uri = "https://words.hk")
+                                EnhancedHorizontalDivider()
+                                WebLinkLabel(icon = Icons.Rounded.Search, text = "粵語審音配詞字庫", uri = "https://humanum.arts.cuhk.edu.hk/Lexis/lexi-can")
+                                EnhancedHorizontalDivider()
+                                WebLinkLabel(icon = Icons.Rounded.Search, text = "羊羊粵語", uri = "https://shyyp.net/hant")
+                                EnhancedHorizontalDivider()
+                                WebLinkLabel(icon = Icons.Rounded.Search, text = "粵語辭叢", uri = "https://www.jyutjyu.com")
+                        }
+                }
+                item {
+                        Column(
+                                modifier = Modifier
+                                        .background(color = colorScheme.background, shape = RoundedCornerShape(16.dp))
+                                        .fillMaxWidth()
+                        ) {
+                                WebLinkLabel(icon = Icons.Outlined.Public, text = "粵拼 Jyutping", uri = "https://jyutping.org")
+                                EnhancedHorizontalDivider()
+                                WebLinkLabel(icon = Icons.Outlined.Public, text = "粵語拼音速遞 - CUHK", uri = "https://www.ilc.cuhk.edu.hk/workshop/Chinese/Cantonese/Romanization")
+                                EnhancedHorizontalDivider()
+                                WebLinkLabel(icon = Icons.Outlined.Public, text = "粵語網路課堂 - CUHK", uri = "https://www.ilc.cuhk.edu.hk/workshop/Chinese/Cantonese/OnlineTutorial")
+                                EnhancedHorizontalDivider()
+                                WebLinkLabel(icon = Icons.Outlined.Public, text = "翻轉粵語教室 - PolyU", uri = "https://www.polyu.edu.hk/clc/cantonese/home")
+                                EnhancedHorizontalDivider()
+                                WebLinkLabel(icon = Icons.Outlined.Public, text = "Zidou - 粵拼版 Wordle", uri = "https://chaaklau.github.io/zidou")
+                                EnhancedHorizontalDivider()
+                                WebLinkLabel(icon = Icons.Outlined.Public, text = "六合 | 粵拼版 Wordle", uri = "https://lukhap.jonathanl.dev")
+                        }
+                }
+        }
+}

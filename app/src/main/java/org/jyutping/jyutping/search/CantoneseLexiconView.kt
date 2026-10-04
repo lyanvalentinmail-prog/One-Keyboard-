@@ -1,0 +1,58 @@
+package org.jyutping.jyutping.search
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme.colorScheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import org.jyutping.jyutping.R
+import org.jyutping.jyutping.app.common.SeparatorMark
+
+@Composable
+fun CantoneseLexiconView(lexicon: CantoneseLexicon) {
+        Column(
+                modifier = Modifier
+                        .fillMaxWidth()
+                        .background(color = colorScheme.background, shape = RoundedCornerShape(16.dp))
+                        .padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+                WordTextLabel(word = lexicon.text, isSpeakable = true)
+                lexicon.pronunciations.forEach {
+                        Column(
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                                HorizontalDivider(modifier = Modifier.alpha(0.66f))
+                                PronunciationLabel(pronunciation = it, word = lexicon.text)
+                        }
+                }
+                lexicon.unihanDefinition?.let {
+                        Column(
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                                HorizontalDivider(modifier = Modifier.alpha(0.66f))
+                                Row {
+                                        Text(
+                                                text = stringResource(R.string.search_label_english),
+                                                color = colorScheme.onBackground
+                                        )
+                                        SeparatorMark()
+                                        Text(
+                                                text = it,
+                                                color = colorScheme.onBackground
+                                        )
+                                }
+                        }
+                }
+        }
+}

@@ -1,0 +1,5 @@
+1. Se ha añadido la selección de sílabas en el teclado de 9 teclas.
+2. Las teclas de la zona de escritura del teclado de 9 teclas son algo más grandes, para escribir mejor.
+3. La tecla Suprimir del teclado de 26 teclas es algo más grande, para escribir mejor.
+4. Ligera mejora del algoritmo de ordenación de candidatos, para escribir con más fluidez.
+5. Ligera mejora de la búsqueda inversa mediante la descomposición de caracteres.
