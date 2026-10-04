@@ -66,11 +66,17 @@ Lo que **no** se traduce, por motivos funcionales:
   tablas de iniciales, finales y tonos.
 - Los ejemplos de uso del cantonés (sus títulos y explicaciones sí están en
   español; las frases de ejemplo son justamente lo que se enseña).
-- El texto de las teclas del teclado: cambia según el conjunto de caracteres que
-  estés escribiendo (tradicional o simplificado), no según el idioma de la
-  interfaz. Traducirlo rompería el comportamiento del teclado.
-- Los nombres propios de los recursos externos sobre cantonés y las citas de los
-  diccionarios clásicos.
+- Los indicadores 繁/简 y 粵/粤 de las teclas que cambian el conjunto de
+  caracteres y el modo de escritura: cada glifo está escrito en el conjunto que
+  activa, así que se explica a sí mismo.
+- Los nombres propios de los recursos externos sobre cantonés, las citas de los
+  diccionarios clásicos y la terminología fonológica del 廣韻.
+
+El **texto de las teclas sí está traducido**: la barra espaciadora, la tecla
+Intro y los rótulos pequeños que aparecen encima de las teclas de símbolos. Las
+variantes tradicional/simplificado indican el conjunto de caracteres que estás
+escribiendo, no el idioma: en chino conservan la distinción original y en
+español las dos dan el mismo texto.
 
 Ese contenido es el objeto de estudio de la aplicación, no texto de interfaz.
 

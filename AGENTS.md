@@ -214,8 +214,15 @@ Some Chinese text in the sources is linguistic data rather than interface copy, 
 - Traditional/Simplified conversion tables (`models/Simplifier.kt`, `models/TailoredConverter.kt`, `models/ExtraEntry.kt`).
 - Example characters, tone names, and IPA rows in the Jyutping initials/finals/tones screens.
 - Cantonese usage examples in `app/cantonese/ExpressionsScreen.kt` (headings and explanations are translated; the Cantonese examples are the subject matter).
-- Keycap text in `keyboard/SpaceKeyForm.kt`, `keyboard/ReturnKeyForm.kt`, `keyboard/CantoneseNumberRow.kt`, and `presets/PresetString.kt`. These labels track the Simplified/Traditional character set the user is currently typing, not the UI display language.
 - Names of external Cantonese resources linked from `app/romanization/JyutpingScreen.kt` and `app/cantonese/CantoneseScreen.kt`, and the classical dictionary citations in `search/*View.kt`, which are proper nouns.
+- The Guangyun phonology descriptions built in `utilities/SearchHelper.kt` (母/韻/聲/切/等/口/小韻), which are terminology from the classical rime dictionaries being quoted.
+- The 繁/简 and 粵/粤 glyphs on the character-set and input-mode switch keys (`keyboard/CharacterSetSwitch.kt`, `keyboard/InputMethodModeSwitch.kt`, `keyboard/CandidateBoardPhysicalButtons.kt`). The glyph itself is written in the character set it selects, so it demonstrates its own meaning.
+
+#### Keycap text is localized
+
+`keyboard/SpaceKeyForm.kt` and `keyboard/ReturnKeyForm.kt` return `@StringRes Int` rather than `String`. Their `Simplified` / `Traditional` / `ABC` variants track the character set being typed, **not** the UI language: the Chinese locales keep the original 繁/简 distinction, while Spanish and English resolve both variants to the same word. Resolve them with `stringResource(...)` in composables and `getString(...)` from the input method service.
+
+Small keycap hints (`key_header_*`) are plain string resources used from the keyboard layout composables.
 
 ## Code style and repository hygiene
 
