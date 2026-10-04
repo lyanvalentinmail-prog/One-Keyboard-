@@ -18,10 +18,10 @@ jobs:
     name: Compilar APK de depuración
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Instalar JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: "21"
           distribution: "temurin"
@@ -40,7 +40,7 @@ jobs:
         run: ./gradlew :app:assembleDebug --warning-mode all
 
       - name: Subir el APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: jyutping-es-debug-apk
           path: app/build/outputs/apk/debug/*.apk
