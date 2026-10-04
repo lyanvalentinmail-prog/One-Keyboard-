@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jyutping.jyutping.R
 import org.jyutping.jyutping.emoji.Emoji
 import org.jyutping.jyutping.emoji.EmojiCategory
 import org.jyutping.jyutping.extensions.convertedS2T
@@ -317,7 +318,7 @@ class JyutpingInputMethodService: LifecycleInputMethodService(),
                         returnKeyForm.value = newForm
                 }
                 val imeAction = (editorInfo?.imeOptions ?: currentInputEditorInfo.imeOptions).and(EditorInfo.IME_MASK_ACTION)
-                val newKeyText: String? = newForm.keyText(imeAction)
+                val newKeyText: String? = newForm.keyTextRes(imeAction)?.let { getString(it) }
                 if (returnKeyText.value != newKeyText) {
                         returnKeyText.value = newKeyText
                 }

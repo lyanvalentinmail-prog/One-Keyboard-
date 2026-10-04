@@ -15,9 +15,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.jyutping.jyutping.JyutpingInputMethodService
+import org.jyutping.jyutping.R
 import org.jyutping.jyutping.models.KeyElement
 import org.jyutping.jyutping.models.KeyModel
 import org.jyutping.jyutping.models.KeySide
@@ -26,7 +28,6 @@ import org.jyutping.jyutping.models.VirtualInputKey
 import org.jyutping.jyutping.presets.AltPresetColor
 import org.jyutping.jyutping.presets.PresetColor
 import org.jyutping.jyutping.presets.PresetConstant
-import org.jyutping.jyutping.presets.PresetString
 
 @Composable
 fun TripleStrokeKeyboard(keyHeight: Dp) {
@@ -357,9 +358,9 @@ private fun RowScope.SecondEnhancedKeyRow() {
                         members = listOf(
                                 KeyElement(text = "f"),
                                 KeyElement(text = "/"),
-                                KeyElement(text = "／", header = PresetString.FULL_WIDTH),
+                                KeyElement(text = "／", header = stringResource(R.string.key_header_full_width)),
                                 KeyElement(text = "\\"),
-                                KeyElement(text = "＼", header = PresetString.FULL_WIDTH)
+                                KeyElement(text = "＼", header = stringResource(R.string.key_header_full_width))
                         )
                 ),
                 modifier = Modifier.weight(1f)
@@ -422,11 +423,11 @@ private fun RowScope.SecondEnhancedKeyRow() {
                         members = listOf(
                                 KeyElement(text = "l"),
                                 KeyElement(text = "'", footer = "0027"),
-                                KeyElement(text = "’", header = "右", footer = "2019"),
-                                KeyElement(text = "‘", header = "左", footer = "2018"),
+                                KeyElement(text = "’", header = stringResource(R.string.key_header_right), footer = "2019"),
+                                KeyElement(text = "‘", header = stringResource(R.string.key_header_left), footer = "2018"),
                                 KeyElement(text = "\"", footer = "0022"),
-                                KeyElement(text = "”", header = "右", footer = "201D"),
-                                KeyElement(text = "“", header = "左", footer = "201C")
+                                KeyElement(text = "”", header = stringResource(R.string.key_header_right), footer = "201D"),
+                                KeyElement(text = "“", header = stringResource(R.string.key_header_left), footer = "201C")
                         )
                 ),
                 modifier = Modifier.weight(1f)
@@ -443,7 +444,7 @@ private fun RowScope.ThirdEnhancedKeyRow() {
                         members = listOf(
                                 KeyElement(text = "z"),
                                 KeyElement(text = "%"),
-                                KeyElement(text = "％", header = PresetString.FULL_WIDTH),
+                                KeyElement(text = "％", header = stringResource(R.string.key_header_full_width)),
                                 KeyElement(text = "‰")
                         )
                 ),
@@ -470,7 +471,7 @@ private fun RowScope.ThirdEnhancedKeyRow() {
                         members = listOf(
                                 KeyElement(text = "c"),
                                 KeyElement(text = "～"),
-                                KeyElement(text = "~", header = PresetString.HALF_WIDTH)
+                                KeyElement(text = "~", header = stringResource(R.string.key_header_half_width))
                         )
                 ),
                 modifier = Modifier.weight(1f)

@@ -15,9 +15,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.jyutping.jyutping.JyutpingInputMethodService
+import org.jyutping.jyutping.R
 import org.jyutping.jyutping.extensions.toCharText
 import org.jyutping.jyutping.models.KeyElement
 import org.jyutping.jyutping.models.KeyModel
@@ -26,7 +28,6 @@ import org.jyutping.jyutping.models.KeyboardForm
 import org.jyutping.jyutping.presets.AltPresetColor
 import org.jyutping.jyutping.presets.PresetColor
 import org.jyutping.jyutping.presets.PresetConstant
-import org.jyutping.jyutping.presets.PresetString
 
 @Composable
 fun CantoneseNumericKeyboard(keyHeight: Dp) {
@@ -71,7 +72,7 @@ fun CantoneseNumericKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("-"),
                                         members = listOf(
                                                 KeyElement("-"),
-                                                KeyElement("－", header = PresetString.FULL_WIDTH, footer = "FF0D"),
+                                                KeyElement("－", header = stringResource(R.string.key_header_full_width), footer = "FF0D"),
                                                 KeyElement("—", footer = "2014"),
                                                 KeyElement("–", footer = "2013"),
                                                 KeyElement("•", footer = "2022")
@@ -85,7 +86,7 @@ fun CantoneseNumericKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("/"),
                                         members = listOf(
                                                 KeyElement("/"),
-                                                KeyElement("／", header = PresetString.FULL_WIDTH),
+                                                KeyElement("／", header = stringResource(R.string.key_header_full_width)),
                                                 KeyElement("\\"),
                                                 KeyElement("÷"),
                                         )
@@ -98,7 +99,7 @@ fun CantoneseNumericKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("："),
                                         members = listOf(
                                                 KeyElement("："),
-                                                KeyElement(":", header = PresetString.HALF_WIDTH),
+                                                KeyElement(":", header = stringResource(R.string.key_header_half_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -109,7 +110,7 @@ fun CantoneseNumericKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("；"),
                                         members = listOf(
                                                 KeyElement("；"),
-                                                KeyElement(";", header = PresetString.HALF_WIDTH),
+                                                KeyElement(";", header = stringResource(R.string.key_header_half_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -120,7 +121,7 @@ fun CantoneseNumericKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("（"),
                                         members = listOf(
                                                 KeyElement("（"),
-                                                KeyElement("(", header = PresetString.HALF_WIDTH),
+                                                KeyElement("(", header = stringResource(R.string.key_header_half_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -131,7 +132,7 @@ fun CantoneseNumericKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("）"),
                                         members = listOf(
                                                 KeyElement("）"),
-                                                KeyElement(")", header = PresetString.HALF_WIDTH),
+                                                KeyElement(")", header = stringResource(R.string.key_header_half_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -158,7 +159,7 @@ fun CantoneseNumericKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("@"),
                                         members = listOf(
                                                 KeyElement("@"),
-                                                KeyElement("＠", header = PresetString.FULL_WIDTH),
+                                                KeyElement("＠", header = stringResource(R.string.key_header_full_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -203,7 +204,7 @@ fun CantoneseNumericKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("。"),
                                         members = listOf(
                                                 KeyElement("。"),
-                                                KeyElement("｡", header = PresetString.HALF_WIDTH),
+                                                KeyElement("｡", header = stringResource(R.string.key_header_half_width)),
                                                 KeyElement(text = "2026".toCharText(), footer = "2026"),
                                                 KeyElement(text = "22EF".toCharText(), footer = "22EF"),
                                         )
@@ -216,7 +217,7 @@ fun CantoneseNumericKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("，"),
                                         members = listOf(
                                                 KeyElement("，"),
-                                                KeyElement(",", header = PresetString.HALF_WIDTH),
+                                                KeyElement(",", header = stringResource(R.string.key_header_half_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -227,7 +228,7 @@ fun CantoneseNumericKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("、"),
                                         members = listOf(
                                                 KeyElement("、"),
-                                                KeyElement("､", header = PresetString.HALF_WIDTH),
+                                                KeyElement("､", header = stringResource(R.string.key_header_half_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -238,7 +239,7 @@ fun CantoneseNumericKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("？"),
                                         members = listOf(
                                                 KeyElement("？"),
-                                                KeyElement("?", header = PresetString.HALF_WIDTH),
+                                                KeyElement("?", header = stringResource(R.string.key_header_half_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -249,7 +250,7 @@ fun CantoneseNumericKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("！"),
                                         members = listOf(
                                                 KeyElement("！"),
-                                                KeyElement("!", header = PresetString.HALF_WIDTH),
+                                                KeyElement("!", header = stringResource(R.string.key_header_half_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -260,7 +261,7 @@ fun CantoneseNumericKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("."),
                                         members = listOf(
                                                 KeyElement("."),
-                                                KeyElement(text = "．", header = PresetString.FULL_WIDTH, footer = "FF0E"),
+                                                KeyElement(text = "．", header = stringResource(R.string.key_header_full_width), footer = "FF0E"),
                                                 KeyElement(text = "…", footer = "2026"),
                                         )
                                 ),
@@ -272,9 +273,9 @@ fun CantoneseNumericKeyboard(keyHeight: Dp) {
                                         primary = KeyElement(text = "0022".toCharText()),
                                         members = listOf(
                                                 KeyElement(text = "0022".toCharText(), footer = "0022"),
-                                                KeyElement(text = "FF02".toCharText(), header = PresetString.FULL_WIDTH, footer = "FF02"),
-                                                KeyElement(text = "201D".toCharText(), header = "右", footer = "201D"),
-                                                KeyElement(text = "201C".toCharText(), header = "左", footer = "201C"),
+                                                KeyElement(text = "FF02".toCharText(), header = stringResource(R.string.key_header_full_width), footer = "FF02"),
+                                                KeyElement(text = "201D".toCharText(), header = stringResource(R.string.key_header_right), footer = "201D"),
+                                                KeyElement(text = "201C".toCharText(), header = stringResource(R.string.key_header_left), footer = "201C"),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)

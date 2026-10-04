@@ -15,9 +15,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.jyutping.jyutping.JyutpingInputMethodService
+import org.jyutping.jyutping.R
 import org.jyutping.jyutping.extensions.toCharText
 import org.jyutping.jyutping.models.KeyElement
 import org.jyutping.jyutping.models.KeyModel
@@ -26,7 +28,6 @@ import org.jyutping.jyutping.models.KeyboardForm
 import org.jyutping.jyutping.presets.AltPresetColor
 import org.jyutping.jyutping.presets.PresetColor
 import org.jyutping.jyutping.presets.PresetConstant
-import org.jyutping.jyutping.presets.PresetString
 
 @Composable
 fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
@@ -70,7 +71,7 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("［"),
                                         members = listOf(
                                                 KeyElement("［"),
-                                                KeyElement(text = "[", header = PresetString.HALF_WIDTH),
+                                                KeyElement(text = "[", header = stringResource(R.string.key_header_half_width)),
                                                 KeyElement("【"),
                                                 KeyElement("〖"),
                                                 KeyElement("〔"),
@@ -84,7 +85,7 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("］"),
                                         members = listOf(
                                                 KeyElement("］"),
-                                                KeyElement("]", header = PresetString.HALF_WIDTH),
+                                                KeyElement("]", header = stringResource(R.string.key_header_half_width)),
                                                 KeyElement("】"),
                                                 KeyElement("〗"),
                                                 KeyElement("〕"),
@@ -98,7 +99,7 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("｛"),
                                         members = listOf(
                                                 KeyElement("｛"),
-                                                KeyElement("{", header = PresetString.HALF_WIDTH),
+                                                KeyElement("{", header = stringResource(R.string.key_header_half_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -109,7 +110,7 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("｝"),
                                         members = listOf(
                                                 KeyElement("｝"),
-                                                KeyElement("}", header = PresetString.HALF_WIDTH),
+                                                KeyElement("}", header = stringResource(R.string.key_header_half_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -120,7 +121,7 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("#"),
                                         members = listOf(
                                                 KeyElement("#"),
-                                                KeyElement("＃", header = PresetString.FULL_WIDTH),
+                                                KeyElement("＃", header = stringResource(R.string.key_header_full_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -131,7 +132,7 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("%"),
                                         members = listOf(
                                                 KeyElement("%"),
-                                                KeyElement("％", header = PresetString.FULL_WIDTH),
+                                                KeyElement("％", header = stringResource(R.string.key_header_full_width)),
                                                 KeyElement("‰"),
                                         )
                                 ),
@@ -143,7 +144,7 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("^"),
                                         members = listOf(
                                                 KeyElement("^"),
-                                                KeyElement("＾", header = PresetString.FULL_WIDTH),
+                                                KeyElement("＾", header = stringResource(R.string.key_header_full_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -154,7 +155,7 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("*"),
                                         members = listOf(
                                                 KeyElement("*"),
-                                                KeyElement("＊", header = PresetString.FULL_WIDTH),
+                                                KeyElement("＊", header = stringResource(R.string.key_header_full_width)),
                                                 KeyElement("×"),
                                         )
                                 ),
@@ -166,7 +167,7 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("+"),
                                         members = listOf(
                                                 KeyElement("+"),
-                                                KeyElement("＋", header = PresetString.FULL_WIDTH),
+                                                KeyElement("＋", header = stringResource(R.string.key_header_full_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -177,7 +178,7 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("="),
                                         members = listOf(
                                                 KeyElement("="),
-                                                KeyElement(text = "＝", header = PresetString.FULL_WIDTH),
+                                                KeyElement(text = "＝", header = stringResource(R.string.key_header_full_width)),
                                                 KeyElement("≠"),
                                                 KeyElement("≈"),
                                         )
@@ -196,7 +197,7 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("_"),
                                         members = listOf(
                                                 KeyElement("_"),
-                                                KeyElement(text = "＿", header = PresetString.FULL_WIDTH),
+                                                KeyElement(text = "＿", header = stringResource(R.string.key_header_full_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -208,7 +209,7 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("\\"),
                                         members = listOf(
                                                 KeyElement("\\"),
-                                                KeyElement(text = "＼", header = PresetString.FULL_WIDTH),
+                                                KeyElement(text = "＼", header = stringResource(R.string.key_header_full_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -219,7 +220,7 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("｜"),
                                         members = listOf(
                                                 KeyElement("｜"),
-                                                KeyElement(text = "|", header = PresetString.HALF_WIDTH),
+                                                KeyElement(text = "|", header = stringResource(R.string.key_header_half_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -230,7 +231,7 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("～"),
                                         members = listOf(
                                                 KeyElement("～"),
-                                                KeyElement(text = "~", header = PresetString.HALF_WIDTH),
+                                                KeyElement(text = "~", header = stringResource(R.string.key_header_half_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -242,8 +243,8 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         members = listOf(
                                                 KeyElement("《"),
                                                 KeyElement("〈"),
-                                                KeyElement(text = "<", header = PresetString.HALF_WIDTH),
-                                                KeyElement(text = "＜", header = PresetString.FULL_WIDTH),
+                                                KeyElement(text = "<", header = stringResource(R.string.key_header_half_width)),
+                                                KeyElement(text = "＜", header = stringResource(R.string.key_header_full_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -255,8 +256,8 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         members = listOf(
                                                 KeyElement("》"),
                                                 KeyElement("〉"),
-                                                KeyElement(text = ">", header = PresetString.HALF_WIDTH),
-                                                KeyElement(text = "＞", header = PresetString.FULL_WIDTH),
+                                                KeyElement(text = ">", header = stringResource(R.string.key_header_half_width)),
+                                                KeyElement(text = "＞", header = stringResource(R.string.key_header_full_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -267,7 +268,7 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("¥"),
                                         members = listOf(
                                                 KeyElement("¥"),
-                                                KeyElement(text = "￥", header = PresetString.FULL_WIDTH),
+                                                KeyElement(text = "￥", header = stringResource(R.string.key_header_full_width)),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -278,7 +279,7 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement("&"),
                                         members = listOf(
                                                 KeyElement("&"),
-                                                KeyElement(text = "＆", header = PresetString.FULL_WIDTH),
+                                                KeyElement(text = "＆", header = stringResource(R.string.key_header_full_width)),
                                                 KeyElement("§"),
                                         )
                                 ),
@@ -289,12 +290,12 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                 keyModel = KeyModel(
                                         primary = KeyElement(text = "00B7".toCharText()),
                                         members = listOf(
-                                                KeyElement(text = "00B7".toCharText(), header = "間隔號", footer = "00B7"),
-                                                KeyElement(text = "2022".toCharText(), header = "項目符號", footer = "2022"),
-                                                KeyElement(text = "00B0".toCharText(), header = "度"),
-                                                KeyElement(text = "2027".toCharText(), header = "連字點", footer = "2027"),
-                                                KeyElement(text = "FF65".toCharText(), header = "半寬中點", footer = "FF65"),
-                                                KeyElement(text = "30FB".toCharText(), header = "全寬中點", footer = "30FB"),
+                                                KeyElement(text = "00B7".toCharText(), header = stringResource(R.string.key_header_interpunct), footer = "00B7"),
+                                                KeyElement(text = "2022".toCharText(), header = stringResource(R.string.key_header_bullet), footer = "2022"),
+                                                KeyElement(text = "00B0".toCharText(), header = stringResource(R.string.key_header_degree)),
+                                                KeyElement(text = "2027".toCharText(), header = stringResource(R.string.key_header_hyphenation_point), footer = "2027"),
+                                                KeyElement(text = "FF65".toCharText(), header = stringResource(R.string.key_header_middle_dot_half), footer = "FF65"),
+                                                KeyElement(text = "30FB".toCharText(), header = stringResource(R.string.key_header_middle_dot_full), footer = "30FB"),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -329,10 +330,10 @@ fun CantoneseSymbolicKeyboard(keyHeight: Dp) {
                                         primary = KeyElement(text = "0027".toCharText()),
                                         members = listOf(
                                                 KeyElement(text = "0027".toCharText(), footer = "0027"),
-                                                KeyElement(text = "FF07".toCharText(), header = PresetString.FULL_WIDTH, footer = "FF07"),
-                                                KeyElement(text = "2019".toCharText(), header = "右", footer = "2019"),
-                                                KeyElement(text = "2018".toCharText(), header = "左", footer = "2018"),
-                                                KeyElement(text = "0060".toCharText(), header = "重音符", footer = "0060"),
+                                                KeyElement(text = "FF07".toCharText(), header = stringResource(R.string.key_header_full_width), footer = "FF07"),
+                                                KeyElement(text = "2019".toCharText(), header = stringResource(R.string.key_header_right), footer = "2019"),
+                                                KeyElement(text = "2018".toCharText(), header = stringResource(R.string.key_header_left), footer = "2018"),
+                                                KeyElement(text = "0060".toCharText(), header = stringResource(R.string.key_header_grave_accent), footer = "0060"),
                                         )
                                 ),
                                 modifier = Modifier.weight(1f)

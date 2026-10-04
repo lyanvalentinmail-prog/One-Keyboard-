@@ -22,9 +22,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jyutping.jyutping.JyutpingInputMethodService
+import org.jyutping.jyutping.R
 import org.jyutping.jyutping.extensions.negative
 import org.jyutping.jyutping.feedback.SoundEffect
 import org.jyutping.jyutping.presets.PresetConstant
@@ -80,7 +82,7 @@ fun NineKeySpecialKey(modifier: Modifier) {
                         contentAlignment = Alignment.BottomCenter
                 ) {
                         Text(
-                                text = "反查",
+                                text = stringResource(R.string.nine_key_reverse_lookup_label),
                                 color = if (isDarkMode) Color.White else Color.Black,
                                 fontSize = 10.sp,
                         )

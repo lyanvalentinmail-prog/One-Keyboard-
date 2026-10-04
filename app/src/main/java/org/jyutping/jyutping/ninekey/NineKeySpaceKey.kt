@@ -23,8 +23,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.jyutping.jyutping.JyutpingInputMethodService
+import org.jyutping.jyutping.R
 import org.jyutping.jyutping.feedback.SoundEffect
 import org.jyutping.jyutping.presets.PresetConstant
 import org.jyutping.jyutping.utilities.ToolBox
@@ -99,7 +101,7 @@ fun NineKeySpaceKey(modifier: Modifier) {
                 contentAlignment = Alignment.Center
         ) {
                 Text(
-                        text = if (isDragging) PresetConstant.SpaceKeyLongPressHint else keyForm.text(),
+                        text = if (isDragging) PresetConstant.SpaceKeyLongPressHint else stringResource(keyForm.textRes()),
                         color = if (isDarkMode) Color.White else Color.Black,
                         fontSize = with(density) { 16.dp.toSp() },
                 )

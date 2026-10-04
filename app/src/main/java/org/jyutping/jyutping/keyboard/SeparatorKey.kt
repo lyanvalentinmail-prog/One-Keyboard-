@@ -28,10 +28,12 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jyutping.jyutping.JyutpingInputMethodService
+import org.jyutping.jyutping.R
 import org.jyutping.jyutping.feedback.SoundEffect
 import org.jyutping.jyutping.models.VirtualInputKey
 import org.jyutping.jyutping.presets.AltPresetColor
@@ -103,7 +105,7 @@ fun SeparatorKey(modifier: Modifier) {
                                 contentAlignment = Alignment.BottomCenter
                         ) {
                                 Text(
-                                        text = "分隔",
+                                        text = stringResource(R.string.separator_key_label),
                                         color = textColor,
                                         fontSize = 10.sp
                                 )
