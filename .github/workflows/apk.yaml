@@ -1,0 +1,47 @@
+name: Build APK
+
+# Genera un APK descargable de la versión en español.
+# Se ejecuta en cada push a la rama de trabajo y también a mano desde
+# la pestaña "Actions" de GitHub (botón "Run workflow").
+
+on:
+  push:
+    branches:
+      - arena/01a10499-one-keyboard
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    name: Compilar APK de depuración
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: gradle
+
+      # El diccionario SQLite no está en el repositorio (.gitignore lo excluye),
+      # así que hay que generarlo antes de compilar la aplicación.
+      - name: Generar la base de datos
+        run: ./gradlew run --warning-mode all
+        working-directory: ./preparing
+
+      - name: Comprobar que la base de datos existe
+        run: ls -lh app/src/main/assets/
+
+      - name: Compilar el APK
+        run: ./gradlew :app:assembleDebug --warning-mode all
+
+      - name: Subir el APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: jyutping-es-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
